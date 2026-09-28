@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Switchback">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#EEF0EE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121514" media="(prefers-color-scheme: dark)">
+<title>Switchback</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='10' y='10' width='44' height='44' rx='5' transform='rotate(45 32 32)' fill='%23F5C518' stroke='%23111' stroke-width='3'/%3E%3Cpath d='M26 44 v-7 q0-5 6-7 q6-2 6-7 v-4 l-4 4 m4-4 l4 4' fill='none' stroke='%23111' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Layout: one mobile-first column — planner, map, then the verdict and the numbers behind it. Road-sign yellow is the only accent. */
+:root {
+  --bg: #EEF0EE; --surface: #FFFFFF; --sunk: #E3E7E4; --ink: #1B1F1E; --muted: #58625F; --line: #D2D8D4;
+  --accent: #F2C200; --accent-ink: #7A5A00; --on-accent: #16140A;
+  --route: #2F5E82; --casing: #FFFFFF; --fast: #7D8784;
+  --c1: #E7B800; --c2: #EE8A00; --c3: #DB4F1E; --c4: #B51D3B;
+  --good: #23784C; --warn: #A86F00; --bad: #BF3526;
+  --font-display: "Overpass", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-data: "Overpass Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
+    --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
+    --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490;
+    --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
+    --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
+  --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
+  --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490;
+  --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
+  --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.45 var(--font-body);
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+}
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; padding-block: 12px 40px; display: grid; gap: 14px; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.brand svg { width: 34px; height: 34px; flex: none; }
+.brand h1 { font-size: 1.55rem; font-weight: 800; letter-spacing: .01em; }
+.brand small { display: block; font: 600 .72rem/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; width: 40px; height: 40px; display: grid; place-items: center; }
+.icon-btn svg { width: 20px; height: 20px; }
+
+/* cards */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 14px; }
+.label { font: 600 .72rem/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.field { display: grid; gap: 6px; position: relative; min-width: 0; }
+.row { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.row > .grow { flex: 1; min-width: 0; }
+input[type="text"], input[type="password"], input[type="datetime-local"] {
+  width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 11px 12px; font-size: 16px; min-width: 0;
+}
+input::placeholder { color: var(--muted); }
+.ghost { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 10px 12px; white-space: nowrap; font-weight: 600; }
+.ghost svg { width: 18px; height: 18px; vertical-align: -4px; }
+
+.seg { display: flex; background: var(--sunk); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 7px; padding: 9px 6px; font: 600 .92rem/1.1 var(--font-display); color: var(--muted); min-width: 0; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .18); }
+.seg.mode button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.seg-hint { font-size: .85rem; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 7px 12px; font: 600 .88rem/1 var(--font-display); color: var(--muted); }
+.chip[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--sunk); }
+.chip[aria-pressed="true"]::before { content: "✓ "; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.range-val { font: 600 1rem var(--font-data); }
+
+.go { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 15px; font: 800 1.1rem/1 var(--font-display); letter-spacing: .02em; width: 100%; }
+.go:disabled { opacity: .6; cursor: progress; }
+
+.suggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 1000; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); max-height: 280px; overflow-y: auto; }
+.suggest li button { width: 100%; text-align: left; border: 0; background: transparent; padding: 9px 10px; border-radius: 6px; display: grid; gap: 1px; }
+.suggest li button:hover, .suggest li button:focus-visible { background: var(--sunk); }
+.suggest .sub { color: var(--muted); font-size: .85rem; }
+
+.msg { border-radius: 8px; padding: 10px 12px; font-size: .95rem; background: var(--sunk); }
+.msg.err { border-left: 4px solid var(--bad); }
+.msg.info { border-left: 4px solid var(--accent); }
+
+/* map */
+.map-wrap { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); }
+#map { height: 46vh; min-height: 300px; max-height: 560px; background: var(--sunk); }
+.map-tools { position: absolute; top: 10px; right: 10px; z-index: 500; display: grid; gap: 6px; justify-items: end; }
+.map-tools .chip { background: var(--surface); }
+.legend { position: absolute; left: 10px; bottom: 10px; z-index: 500; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: 600 .72rem/1.2 var(--font-display); display: grid; gap: 4px; color: var(--muted); }
+.legend .sw { display: flex; gap: 3px; align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 5px; border-radius: 3px; }
+.leaflet-container { font-family: var(--font-body); }
+.wp-dot { background: var(--ink); color: var(--bg); border: 2px solid var(--bg); border-radius: 999px; font: 700 11px/16px var(--font-data); text-align: center; width: 20px !important; height: 20px !important; }
+.end-pin { background: var(--accent); border: 3px solid var(--ink); border-radius: 4px; transform: rotate(45deg); }
+.loading { position: absolute; inset: 0; z-index: 600; display: grid; place-items: center; background: rgb(0 0 0 / .25); font: 800 1rem var(--font-display); color: #fff; letter-spacing: .04em; }
+
+/* verdict */
+.verdict { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+.sign { width: 104px; height: 104px; position: relative; flex: none; }
+.sign .d { position: absolute; inset: 15px; background: var(--accent); border: 3px solid var(--on-accent); border-radius: 8px; transform: rotate(45deg); }
+.sign .n { position: absolute; inset: 0; display: grid; place-items: center; font: 800 2.1rem/1 var(--font-display); color: var(--on-accent); }
+.verdict h2 { font-size: 1.45rem; font-weight: 800; }
+.verdict p { margin: 4px 0 0; color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.stat { background: var(--surface); padding: 10px 12px; display: grid; gap: 3px; min-width: 0; }
+.stat b { font: 600 1.25rem/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
+.stat span.sub { font-size: .82rem; color: var(--muted); }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 .75rem/1.4 var(--font-display); letter-spacing: .04em; text-transform: uppercase; border: 1.5px solid currentColor; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+.drive { display: grid; gap: 8px; }
+.drive a { text-decoration: none; text-align: center; border-radius: 10px; padding: 14px; font: 800 1.02rem/1 var(--font-display); }
+.drive a.primary { background: var(--ink); color: var(--bg); }
+.drive a.secondary { border: 1px solid var(--line); color: var(--ink); }
+.fine { font-size: .85rem; color: var(--muted); margin: 0; }
+
+.bars { display: grid; gap: 12px; }
+.bar { display: grid; gap: 5px; }
+.bar .top-line { display: flex; justify-content: space-between; gap: 8px; }
+.bar .top-line span:first-child { font-weight: 600; }
+.bar .top-line span:last-child { font: 400 .9rem var(--font-data); color: var(--muted); text-align: right; }
+.track { height: 8px; background: var(--sunk); border-radius: 99px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.bar small { color: var(--muted); font-size: .84rem; }
+
+.stretches { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.stretches li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; background: var(--sunk); }
+.stretches .rk { font: 800 .9rem var(--font-display); width: 26px; height: 26px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); border-radius: 5px; transform: rotate(45deg); }
+.stretches .rk span { transform: rotate(-45deg); }
+.stretches .nm { min-width: 0; }
+.stretches .nm b { display: block; overflow-wrap: anywhere; }
+.stretches .nm small { color: var(--muted); }
+.stretches .cv { font: 600 .95rem var(--font-data); text-align: right; }
+
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font: 600 .72rem/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+td { font-family: var(--font-data); font-size: .92rem; }
+td:first-child { font-family: var(--font-body); font-size: 1rem; }
+
+.incidents { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.incidents li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; background: var(--sunk); border-radius: 8px; }
+.incidents li span:last-child { font-family: var(--font-data); color: var(--muted); white-space: nowrap; }
+
+.profile svg { width: 100%; height: 70px; display: block; }
+details summary { cursor: pointer; font: 600 1rem var(--font-display); }
+details p, details li { color: var(--muted); font-size: .93rem; }
+details ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 6px; }
+.section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.section-h h3 { font-size: 1.05rem; font-weight: 800; }
+
+dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); width: min(440px, calc(100% - 32px)); padding: 18px; }
+dialog::backdrop { background: rgb(0 0 0 / .45); }
+dialog form { display: grid; gap: 12px; }
+dialog h2 { font-size: 1.2rem; }
+dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
+.btn-row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.solid { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: 10px 16px; font: 800 .95rem var(--font-display); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="10" width="44" height="44" rx="5" transform="rotate(45 32 32)" fill="var(--accent)" stroke="var(--on-accent)" stroke-width="3"/><path d="M26 44 v-7 q0-5 6-7 q6-2 6-7 v-4 l-4 4 m4-4 l4 4" fill="none" stroke="var(--on-accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><h1>Switchback</h1><small>Curvy routes · live traffic</small></div>
+    </div>
+    <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    </button>
+  </header>
+
+  <div class="msg info" id="keyNotice" hidden>Add your TomTom API key to start. Tap <b>Settings</b> (top right). It's saved only in this browser.</div>
+
+  <section class="card" aria-label="Plan a drive">
+    <div class="seg mode" role="group" aria-label="Route type" data-key="mode">
+      <button type="button" data-v="ab" aria-pressed="true">A to B</button>
+      <button type="button" data-v="loop" aria-pressed="false">Loop</button>
+    </div>
+
+    <div class="field">
+      <label class="label" for="startInput">Start</label>
+      <div class="row">
+        <input class="grow" type="text" id="startInput" placeholder="Address or place" autocomplete="off" enterkeyhint="next">
+        <button class="ghost" type="button" id="locBtn" aria-label="Use my location"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+      </div>
+      <ul class="suggest" id="startList" hidden></ul>
+    </div>
+
+    <div class="field" id="endField">
+      <label class="label" for="endInput">Finish</label>
+      <input type="text" id="endInput" placeholder="Address or place" autocomplete="off" enterkeyhint="go">
+      <ul class="suggest" id="endList" hidden></ul>
+    </div>
+
+    <div id="loopFields" class="two" hidden>
+      <div class="field">
+        <label class="label" for="loopMin">Loop length</label>
+        <input type="range" id="loopMin" min="20" max="180" step="10" value="60">
+        <span class="range-val" id="loopMinVal">about 60 min</span>
+      </div>
+      <div class="field">
+        <span class="label">Head out toward</span>
+        <div class="seg" role="group" aria-label="Loop direction" data-key="heading">
+          <button type="button" data-v="any" aria-pressed="true">Any</button>
+          <button type="button" data-v="0" aria-pressed="false">N</button>
+          <button type="button" data-v="90" aria-pressed="false">E</button>
+          <button type="button" data-v="180" aria-pressed="false">S</button>
+          <button type="button" data-v="270" aria-pressed="false">W</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="two">
+      <div class="field">
+        <span class="label">Curves</span>
+        <div class="seg" role="group" aria-label="Curves" data-key="curves">
+          <button type="button" data-v="low" aria-pressed="false">Gentle</button>
+          <button type="button" data-v="normal" aria-pressed="false">Twisty</button>
+          <button type="button" data-v="high" aria-pressed="true">Very twisty</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Hills</span>
+        <div class="seg" role="group" aria-label="Hills" data-key="hills">
+          <button type="button" data-v="low" aria-pressed="false">Flat</button>
+          <button type="button" data-v="normal" aria-pressed="true">Rolling</button>
+          <button type="button" data-v="high" aria-pressed="false">Hilly</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label">Avoid</span>
+      <div class="chips">
+        <button class="chip" type="button" data-avoid="unpavedRoads" aria-pressed="true">Unpaved</button>
+        <button class="chip" type="button" data-avoid="motorways" aria-pressed="false">Highways</button>
+        <button class="chip" type="button" data-avoid="tollRoads" aria-pressed="false">Tolls</button>
+        <button class="chip" type="button" data-avoid="ferries" aria-pressed="false">Ferries</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="label">Leaving</span>
+      <div class="row">
+        <div class="seg grow" role="group" aria-label="Departure" data-key="leave">
+          <button type="button" data-v="now" aria-pressed="true">Now</button>
+          <button type="button" data-v="later" aria-pressed="false">Later</button>
+        </div>
+      </div>
+      <input type="datetime-local" id="departAt" hidden aria-label="Departure time">
+    </div>
+
+    <button class="go" type="button" id="goBtn">Find a fun route</button>
+    <div class="msg err" id="err" role="alert" hidden></div>
+  </section>
+
+  <div class="map-wrap">
+    <div id="map" aria-label="Route map"></div>
+    <div class="map-tools">
+      <button class="chip" type="button" id="trafficLayerBtn" aria-pressed="false">Traffic layer</button>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span>Corner radius</span>
+      <span class="sw"><i style="background:var(--route)"></i> straight</span>
+      <span class="sw"><i style="background:var(--c1)"></i> &lt;175 m</span>
+      <span class="sw"><i style="background:var(--c2)"></i> &lt;100 m</span>
+      <span class="sw"><i style="background:var(--c3)"></i> &lt;60 m</span>
+      <span class="sw"><i style="background:var(--c4)"></i> &lt;30 m</span>
+    </div>
+    <div class="loading" id="loading" hidden>Finding curves…</div>
+  </div>
+
+  <div id="results" hidden></div>
+
+  <section class="card" id="howCard">
+    <details>
+      <summary>How the fun score works</summary>
+      <p>Each route is resampled every 20 m and the radius of every bend is measured, the same method the Curvature project (roadcurvature.com) uses to rank roads. Corners near turns and intersections don't count, so a city grid doesn't look twisty.</p>
+      <ul>
+        <li><b>Curves, 40%.</b> Share of the drive spent in corners tighter than 175 m radius. Tighter corners are weighted up to 2×. Full marks at 35%.</li>
+        <li><b>Open road, 20%.</b> Share of the drive off interstates and out of town.</li>
+        <li><b>Hills, 15%.</b> Feet climbed per mile from elevation data. Full marks at 80 ft/mi.</li>
+        <li><b>Traffic, 15%.</b> Live delay as a share of drive time. Zero points at 25% delay.</li>
+        <li><b>Flow, 10%.</b> Fewer turns and junctions per 10 miles means fewer stops.</li>
+      </ul>
+      <p>“Best stretches” are runs of corners broken up by straights longer than 1.5 miles, scored on Curvature's scale: 300+ has a few good corners, 1,000+ is a fun road, 3,000+ is worth a trip.</p>
+    </details>
+  </section>
+</div>
+
+<dialog id="settings">
+  <form method="dialog" id="settingsForm">
+    <h2>Settings</h2>
+    <div class="field">
+      <label class="label" for="keyInput">TomTom API key</label>
+      <input type="password" id="keyInput" autocomplete="off" spellcheck="false" placeholder="Paste your key">
+    </div>
+    <p>Stored only in this browser on this device. The free tier covers 2,500 route and search requests a day, far more than a day of planning uses.</p>
+    <div class="btn-row">
+      <button class="ghost" type="button" id="clearKey">Remove key</button>
+      <button class="ghost" value="cancel" type="submit">Cancel</button>
+      <button class="solid" id="saveKey" value="save" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (s) => document.querySelector(s);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+const KEY_NAME = 'switchback.tomtomKey';
+let KEY = store.get(KEY_NAME) || '';
+
+const S = {
+  mode: 'ab', curves: 'high', hills: 'normal', heading: 'any', leave: 'now',
+  avoid: { unpavedRoads: true, motorways: false, tollRoads: false, ferries: false },
+  start: null, end: null, loopMin: 60, loopSpin: Math.floor(Math.random() * 360), loopDir: 1,
+};
+const MI = 1609.344, FT = 3.28084;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const tok = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const fmtMi = (m) => { const v = m / MI; return v < 10 ? v.toFixed(1) : Math.round(v).toString(); };
+const fmtDur = (sec) => { const m = Math.round(sec / 60); if (m < 60) return m + ' min'; return Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
+const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const isDark = () => { const t = document.documentElement.dataset.theme; if (t) return t === 'dark'; return matchMedia('(prefers-color-scheme: dark)').matches; };
+
+/* ---------------- TomTom + elevation ---------------- */
+async function ttGet(path, params) {
+  if (!KEY) throw new Error('Add your TomTom API key in Settings first.');
+  const q = new URLSearchParams();
+  q.append('key', KEY);
+  for (const [k, v] of params) q.append(k, v);
+  let res;
+  try { res = await fetch('https://api.tomtom.com' + path + '?' + q.toString()); }
+  catch (e) { throw new Error('Could not reach TomTom. Check your connection and try again.'); }
+  let j = null; try { j = await res.json(); } catch (e) {}
+  if (!res.ok) {
+    if (res.status === 403 || res.status === 401) throw new Error('TomTom rejected the API key. Check it in Settings.');
+    if (res.status === 429) throw new Error('TomTom rate limit hit. Wait a minute and try again.');
+    const m = j && (j.error?.description || j.detailedError?.message || j.errorText);
+    throw new Error(m ? 'TomTom: ' + m : 'TomTom returned an error (' + res.status + ').');
+  }
+  return j;
+}
+
+async function getRoute(locs, kind) {
+  const p = [['traffic', 'true'], ['travelMode', 'car'], ['instructionsType', 'coded'], ['computeTravelTimeFor', 'all'],
+    ['sectionType', 'traffic'], ['sectionType', 'motorway'], ['sectionType', 'urban']];
+  if (kind === 'fun') p.push(['routeType', 'thrilling'], ['windingness', S.curves], ['hilliness', S.hills]);
+  else p.push(['routeType', 'fastest']);
+  for (const [k, on] of Object.entries(S.avoid)) {
+    if (!on) continue;
+    if (kind === 'fast' && k === 'motorways') continue;
+    p.push(['avoid', k]);
+  }
+  if (kind === 'fun' && S.mode === 'loop') p.push(['avoid', 'alreadyUsedRoads']);
+  const dep = departParam(); if (dep) p.push(['departAt', dep]);
+  const path = '/routing/1/calculateRoute/' + locs.map((l) => l.lat.toFixed(6) + ',' + l.lng.toFixed(6)).join(':') + '/json';
+  const j = await ttGet(path, p);
+  if (!j || !j.routes || !j.routes.length) throw new Error('No route found between those places.');
+  return j.routes[0];
+}
+
+function departParam() {
+  if (S.leave !== 'later') return null;
+  const v = $('#departAt').value;
+  if (!v) return null;
+  if (new Date(v).getTime() < Date.now() + 60000) return null;
+  return v.length === 16 ? v + ':00' : v;
+}
+
+async function searchPlaces(q) {
+  const c = S.start || (map ? { lat: map.getCenter().lat, lng: map.getCenter().lng } : null);
+  const p = [['typeahead', 'true'], ['limit', '6']];
+  if (c) p.push(['lat', c.lat.toFixed(4)], ['lon', c.lng.toFixed(4)]);
+  const j = await ttGet('/search/2/search/' + encodeURIComponent(q) + '.json', p);
+  return (j.results || []).map((r) => {
+    const addr = r.address?.freeformAddress || '';
+    const name = r.poi?.name || addr.split(',')[0];
+    const sub = r.poi?.name ? addr : addr.split(',').slice(1).join(',').trim();
+    return { label: name, sub, full: r.poi?.name ? name + ', ' + addr : addr, lat: r.position.lat, lng: r.position.lon };
+  });
+}
+
+async function getElevation(an) {
+  const m = an.smp.length; const k = Math.min(100, m);
+  if (k < 2) return null;
+  const idx = []; for (let i = 0; i < k; i++) idx.push(Math.round(i * (m - 1) / (k - 1)));
+  const lat = idx.map((i) => an.smp[i].lat.toFixed(5)).join(',');
+  const lng = idx.map((i) => an.smp[i].lng.toFixed(5)).join(',');
+  try {
+    const r = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lat + '&longitude=' + lng);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const e = j.elevation; if (!Array.isArray(e) || e.length !== k) return null;
+    let up = 0, down = 0, maxGrade = 0;
+    for (let i = 1; i < k; i++) {
+      const dz = e[i] - e[i - 1]; const dx = an.smp[idx[i]].s - an.smp[idx[i - 1]].s;
+      if (dz > 0) up += dz; else down -= dz;
+      if (dx >= 150) maxGrade = Math.max(maxGrade, Math.abs(dz) / dx);
+    }
+    return { up, down, maxGrade, profile: idx.map((i, n) => ({ s: an.smp[i].s, z: e[n] })) };
+  } catch (e) { return null; }
+}
+
+/* ---------------- geometry ---------------- */
+function hav(a, b) {
+  const R = 6371008.8, toR = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * toR, dLng = (b[1] - a[1]) * toR;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+function circumR(p1, p2, p3) {
+  const lat0 = p2.lat * Math.PI / 180, kx = 111320 * Math.cos(lat0), ky = 110574;
+  const ax = p1.lng * kx, ay = p1.lat * ky, bx = p2.lng * kx, by = p2.lat * ky, cx = p3.lng * kx, cy = p3.lat * ky;
+  const A = Math.hypot(bx - cx, by - cy), B = Math.hypot(ax - cx, ay - cy), C = Math.hypot(ax - bx, ay - by);
+  const area2 = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+  if (area2 < 1e-6 || A < 1 || C < 1) return Infinity;
+  return (A * B * C) / (2 * area2);
+}
+function destPoint(p, bearingDeg, km) {
+  const R = 6371.0088, toR = Math.PI / 180, br = bearingDeg * toR, d = km / R;
+  const la1 = p.lat * toR, lo1 = p.lng * toR;
+  const la2 = Math.asin(Math.sin(la1) * Math.cos(d) + Math.cos(la1) * Math.sin(d) * Math.cos(br));
+  const lo2 = lo1 + Math.atan2(Math.sin(br) * Math.sin(d) * Math.cos(la1), Math.cos(d) - Math.sin(la1) * Math.sin(la2));
+  return { lat: la2 / toR, lng: ((lo2 / toR + 540) % 360) - 180 };
+}
+
+const LEVEL_R = [Infinity, 175, 100, 60, 30];
+const LEVEL_W = [0, 1, 1.3, 1.6, 2];
+const levelOf = (r) => (r < 30 ? 4 : r < 60 ? 3 : r < 100 ? 2 : r < 175 ? 1 : 0);
+
+function analyze(route) {
+  const pts = route.legs.flatMap((l) => l.points).map((p) => [p.latitude, p.longitude]);
+  const n = pts.length;
+  const d = new Float64Array(n);
+  for (let i = 1; i < n; i++) d[i] = d[i - 1] + hav(pts[i - 1], pts[i]);
+  const total = d[n - 1] || 1;
+  const sum = route.summary;
+  const scale = total / (sum.lengthInMeters || total);
+
+  // resample every 20 m
+  const STEP = 20, smp = [];
+  let j = 0;
+  for (let s = 0; s < total; s += STEP) {
+    while (j < n - 2 && d[j + 1] < s) j++;
+    const seg = d[j + 1] - d[j], t = seg > 0 ? (s - d[j]) / seg : 0;
+    smp.push({ lat: pts[j][0] + (pts[j + 1][0] - pts[j][0]) * t, lng: pts[j][1] + (pts[j + 1][1] - pts[j][1]) * t, s });
+  }
+  smp.push({ lat: pts[n - 1][0], lng: pts[n - 1][1], s: total });
+  const m = smp.length;
+
+  const R = new Float64Array(m).fill(Infinity);
+  for (let i = 1; i < m - 1; i++) R[i] = circumR(smp[i - 1], smp[i], smp[i + 1]);
+  const lvl = new Uint8Array(m - 1);
+  for (let i = 0; i < m - 1; i++) lvl[i] = levelOf(Math.max(R[i], R[i + 1]));
+
+  // zero corners within 35 m of turns / junctions (Curvature's conflict filter)
+  const instr = (route.guidance && route.guidance.instructions) || [];
+  const conflicts = instr.filter((x) => !/^(DEPART|ARRIVE)/.test(x.maneuver || '')).map((x) => (x.routeOffsetInMeters || 0) * scale);
+  for (const off of conflicts) {
+    const a = Math.max(0, Math.floor((off - 35) / STEP)), b = Math.min(m - 2, Math.ceil((off + 35) / STEP));
+    for (let i = a; i <= b; i++) lvl[i] = 0;
+  }
+  // drop isolated one-segment wiggles (Curvature's deflection filter)
+  for (let i = 1; i < m - 2; i++) if (lvl[i] && !lvl[i - 1] && !lvl[i + 1]) lvl[i] = 0;
+
+  let curvature = 0, curveLen = 0, tightLen = 0;
+  const segLen = (i) => smp[i + 1].s - smp[i].s;
+  for (let i = 0; i < m - 1; i++) {
+    const L = segLen(i);
+    curvature += LEVEL_W[lvl[i]] * L;
+    if (lvl[i]) curveLen += L;
+    if (lvl[i] >= 3) tightLen += L;
+  }
+
+  // colored runs for the map
+  const runs = []; let cur = null;
+  for (let i = 0; i < m - 1; i++) {
+    if (!cur || cur.lvl !== lvl[i]) { cur = { lvl: lvl[i], ll: [[smp[i].lat, smp[i].lng]] }; runs.push(cur); }
+    cur.ll.push([smp[i + 1].lat, smp[i + 1].lng]);
+  }
+
+  // curvy stretches: split on straights longer than 1.5 mi
+  const stretches = []; let st = null, straight = 0;
+  for (let i = 0; i < m - 1; i++) {
+    const L = segLen(i);
+    if (lvl[i]) {
+      if (!st) st = { a: smp[i].s, b: smp[i + 1].s, c: 0, i0: i, i1: i };
+      st.b = smp[i + 1].s; st.i1 = i; st.c += LEVEL_W[lvl[i]] * L; straight = 0;
+    } else if (st) {
+      straight += L;
+      if (straight >= 2414) { stretches.push(st); st = null; straight = 0; }
+    }
+  }
+  if (st) stretches.push(st);
+  const best = stretches.filter((x) => x.c >= 300).sort((a, b) => b.c - a.c).slice(0, 4);
+  for (const b of best) {
+    const mid = (b.a + b.b) / 2 / scale;
+    let road = null;
+    for (const x of instr) { if ((x.routeOffsetInMeters || 0) <= mid && (x.street || x.roadNumbers)) road = x; }
+    b.name = road ? (road.street || (road.roadNumbers || []).join(' / ')) : '';
+    const roadNum = road && road.roadNumbers && road.roadNumbers.length ? road.roadNumbers[0] : '';
+    if (roadNum && b.name && !b.name.includes(roadNum)) b.name += ' (' + roadNum + ')';
+  }
+
+  // sections
+  const idxS = (k) => d[Math.min(Math.max(k, 0), n - 1)];
+  let motor = 0, urban = 0; const traffic = [];
+  for (const sct of route.sections || []) {
+    const L = idxS(sct.endPointIndex) - idxS(sct.startPointIndex);
+    if (sct.sectionType === 'MOTORWAY') motor += L;
+    else if (sct.sectionType === 'URBAN') urban += L;
+    else if (sct.sectionType === 'TRAFFIC') traffic.push({
+      cat: sct.simpleCategory || 'OTHER', delay: sct.delayInSeconds || 0, mag: sct.magnitudeOfDelay,
+      at: idxS(sct.startPointIndex), len: L,
+      ll: pts.slice(sct.startPointIndex, Math.min(sct.endPointIndex, n - 1) + 1),
+    });
+  }
+  const turns = instr.filter((x) => !/^(DEPART|ARRIVE|WAYPOINT)/.test(x.maneuver || '')).length;
+  const delay = sum.trafficDelayInSeconds || 0;
+  const moving = Math.max(60, (sum.travelTimeInSeconds || 0) - delay);
+
+  return {
+    route, pts, d, total, scale, smp, lvl, runs, instr, best,
+    curvature, curveLen, tightLen, curveShare: curveLen / total,
+    motorShare: motor / total, urbanShare: urban / total, traffic,
+    turns, turnsPer10mi: turns / (total / MI) * 10,
+    delay, delayRatio: delay / moving, summary: sum, elev: null,
+  };
+}
+
+function score(an) {
+  const parts = {
+    curves: clamp(an.curveShare / 0.35),
+    open: 1 - clamp(an.motorShare + an.urbanShare),
+    hills: an.elev ? clamp((an.elev.up * FT) / (an.total / MI) / 80) : null,
+    traffic: 1 - clamp(an.delayRatio / 0.25),
+    flow: 1 - clamp((an.turnsPer10mi - 2) / 10),
+  };
+  const w = { curves: 40, open: 20, hills: 15, traffic: 15, flow: 10 };
+  let tot = 0, wt = 0;
+  for (const k in w) { if (parts[k] === null) continue; tot += w[k] * parts[k]; wt += w[k]; }
+  return { value: Math.round((tot / wt) * 100), parts };
+}
+const scoreLabel = (v) => (v < 25 ? 'Basically a commute' : v < 45 ? 'Some fun bits' : v < 65 ? 'Good drive' : v < 80 ? 'Great drive' : 'Epic drive');
+const bandLabel = (c) => (c >= 10000 ? 'epic road' : c >= 3000 ? 'worth a trip' : c >= 1000 ? 'fun road' : c >= 300 ? 'a few good corners' : 'mostly straight');
+function trafficLabel(r) {
+  if (r < 0.03) return { t: 'Clear', cls: 'good' };
+  if (r < 0.10) return { t: 'Light', cls: 'good' };
+  if (r < 0.20) return { t: 'Moderate', cls: 'warn' };
+  return { t: 'Heavy', cls: 'bad' };
+}
+const CAT = { JAM: 'Slow traffic', ROAD_WORK: 'Road work', ROAD_CLOSURE: 'Closure', OTHER: 'Incident' };
+
+/* ---------------- Google Maps handoff ---------------- */
+function pointAt(an, s) {
+  const i = Math.max(0, Math.min(an.smp.length - 1, Math.round(s / 20)));
+  return { lat: an.smp[i].lat, lng: an.smp[i].lng, s: an.smp[i].s };
+}
+function pickWaypoints(an, forced) {
+  const MAX = 9, picks = forced.map((p) => ({ ...p, forced: true }));
+  const far = (s) => picks.every((p) => Math.abs(p.s - s) > 1200) && s > 800 && s < an.total - 800;
+  // 1) middle of the best curvy stretches
+  for (const b of an.best) { if (picks.length >= Math.min(MAX, forced.length + 5)) break; const s = (b.a + b.b) / 2; if (far(s)) picks.push(pointAt(an, s)); }
+  // 2) middle of the longest road stretches between turns
+  const offs = [0, ...an.instr.map((x) => (x.routeOffsetInMeters || 0) * an.scale), an.total].sort((a, b) => a - b);
+  const legs = [];
+  for (let i = 1; i < offs.length; i++) if (offs[i] - offs[i - 1] > 400) legs.push({ a: offs[i - 1], b: offs[i] });
+  legs.sort((x, y) => (y.b - y.a) - (x.b - x.a));
+  for (const L of legs) { if (picks.length >= MAX) break; const s = L.a + (L.b - L.a) * 0.5; if (far(s)) picks.push(pointAt(an, s)); }
+  return picks.sort((a, b) => a.s - b.s).slice(0, MAX);
+}
+function gmapsLinks(origin, dest, wps) {
+  const ll = (p) => p.lat.toFixed(6) + ',' + p.lng.toFixed(6);
+  const useHere = origin.here;
+  let web = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + ll(dest);
+  if (!useHere) web += '&origin=' + ll(origin);
+  if (wps.length) web += '&waypoints=' + wps.map(ll).join('%7C');
+  let app = 'comgooglemaps://?directionsmode=driving&daddr=' + [...wps, dest].map(ll).join('+to:');
+  if (!useHere) app += '&saddr=' + ll(origin);
+  return { web, app };
+}
+
+/* ---------------- map ---------------- */
+let map, baseLayer, trafficLayer, routeGroup;
+function tileUrls() {
+  return {
+    base: 'https://api.tomtom.com/map/1/tile/basic/' + (isDark() ? 'night' : 'main') + '/{z}/{x}/{y}.png?key=' + encodeURIComponent(KEY),
+    traffic: 'https://api.tomtom.com/traffic/map/4/tile/flow/' + (isDark() ? 'relative0-dark' : 'relative0') + '/{z}/{x}/{y}.png?key=' + encodeURIComponent(KEY),
+    osm: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  };
+}
+function initMap() {
+  map = L.map('map', { zoomControl: true, attributionControl: true }).setView([36.1627, -86.7816], 9);
+  setBase();
+  routeGroup = L.layerGroup().addTo(map);
+}
+function setBase() {
+  const u = tileUrls();
+  if (baseLayer) map.removeLayer(baseLayer);
+  baseLayer = KEY
+    ? L.tileLayer(u.base, { maxZoom: 20, attribution: '© TomTom' })
+    : L.tileLayer(u.osm, { maxZoom: 19, attribution: '© OpenStreetMap' });
+  baseLayer.addTo(map); baseLayer.bringToBack();
+  if (trafficLayer) { const on = map.hasLayer(trafficLayer); map.removeLayer(trafficLayer); trafficLayer = null; if (on) toggleTraffic(true); }
+}
+function toggleTraffic(force) {
+  const btn = $('#trafficLayerBtn');
+  const on = typeof force === 'boolean' ? force : !(trafficLayer && map.hasLayer(trafficLayer));
+  if (on && !KEY) { showErr('Add your TomTom API key in Settings to see live traffic.'); return; }
+  if (!trafficLayer) trafficLayer = L.tileLayer(tileUrls().traffic, { maxZoom: 20, opacity: 0.85, zIndex: 5 });
+  if (on) trafficLayer.addTo(map); else map.removeLayer(trafficLayer);
+  btn.setAttribute('aria-pressed', String(on));
+}
+let lastDraw = null;
+function draw(fun, fast, wps) {
+  lastDraw = [fun, fast, wps];
+  routeGroup.clearLayers();
+  const colors = [tok('--route'), tok('--c1'), tok('--c2'), tok('--c3'), tok('--c4')];
+  if (fast) L.polyline(fast.pts, { color: tok('--fast'), weight: 4, opacity: 0.85, dashArray: '2 9', lineCap: 'round' }).addTo(routeGroup)
+    .bindTooltip('Fastest route', { sticky: true });
+  for (const t of fun.traffic) if (t.ll.length > 1) L.polyline(t.ll, { color: tok('--bad'), weight: 14, opacity: 0.35 }).addTo(routeGroup)
+    .bindTooltip((CAT[t.cat] || 'Traffic') + (t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''), { sticky: true });
+  L.polyline(fun.pts, { color: tok('--casing'), weight: 9, opacity: 0.9 }).addTo(routeGroup);
+  for (const r of fun.runs) L.polyline(r.ll, { color: colors[r.lvl], weight: r.lvl ? 6 : 5, opacity: 1 }).addTo(routeGroup);
+  const s = fun.pts[0], e = fun.pts[fun.pts.length - 1];
+  L.circleMarker(s, { radius: 8, color: tok('--casing'), weight: 3, fillColor: tok('--ink'), fillOpacity: 1 }).addTo(routeGroup).bindTooltip('Start');
+  if (S.mode === 'ab') L.marker(e, { icon: L.divIcon({ className: 'end-pin', iconSize: [16, 16] }) }).addTo(routeGroup).bindTooltip('Finish');
+  (wps || []).forEach((w, i) => L.marker([w.lat, w.lng], { icon: L.divIcon({ className: 'wp-dot', html: String(i + 1), iconSize: [20, 20] }) })
+    .addTo(routeGroup).bindTooltip('Google Maps stop ' + (i + 1)));
+  map.fitBounds(L.latLngBounds(fun.pts), { padding: [28, 28] });
+}
+
+/* ---------------- UI wiring ---------------- */
+function showErr(t) { const el = $('#err'); el.textContent = t; el.hidden = !t; }
+function syncSeg(g) { const v = S[g.dataset.key]; g.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
+document.querySelectorAll('.seg').forEach((g) => {
+  g.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    S[g.dataset.key] = b.dataset.v; syncSeg(g);
+    if (g.dataset.key === 'mode') { $('#endField').hidden = S.mode !== 'ab'; $('#loopFields').hidden = S.mode !== 'loop'; }
+    if (g.dataset.key === 'leave') {
+      const inp = $('#departAt'); inp.hidden = S.leave !== 'later';
+      if (!inp.hidden && !inp.value) { const t = new Date(Date.now() + 3600e3); t.setMinutes(0, 0, 0); inp.value = new Date(t - t.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); }
+    }
+  });
+});
+document.querySelectorAll('[data-avoid]').forEach((b) => b.addEventListener('click', () => {
+  const k = b.dataset.avoid; S.avoid[k] = !S.avoid[k]; b.setAttribute('aria-pressed', String(S.avoid[k]));
+}));
+$('#loopMin').addEventListener('input', (e) => {
+  S.loopMin = +e.target.value;
+  $('#loopMinVal').textContent = 'about ' + (S.loopMin < 60 ? S.loopMin + ' min' : fmtDur(S.loopMin * 60));
+});
+$('#trafficLayerBtn').addEventListener('click', () => toggleTraffic());
+
+function setupPlace(inputId, listId, slot) {
+  const input = $(inputId), list = $(listId);
+  const hide = () => { list.hidden = true; list.innerHTML = ''; };
+  const run = debounce(async () => {
+    const q = input.value.trim();
+    if (q.length < 3 || !KEY) { hide(); return; }
+    try {
+      const res = await searchPlaces(q);
+      if (input.value.trim() !== q) return;
+      list.innerHTML = res.map((r, i) => `<li><button type="button" data-i="${i}"><span>${esc(r.label)}</span><span class="sub">${esc(r.sub)}</span></button></li>`).join('');
+      list.hidden = !res.length;
+      list.onclick = (e) => {
+        const b = e.target.closest('button'); if (!b) return;
+        const r = res[+b.dataset.i]; S[slot] = { lat: r.lat, lng: r.lng, label: r.full };
+        input.value = r.full; hide();
+      };
+    } catch (e) { hide(); showErr(e.message); }
+  }, 350);
+  input.addEventListener('input', () => { S[slot] = null; run(); });
+  input.addEventListener('blur', () => setTimeout(hide, 200));
+}
+setupPlace('#startInput', '#startList', 'start');
+setupPlace('#endInput', '#endList', 'end');
+
+$('#locBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) { showErr("Location isn't available in this browser. Type a start address instead."); return; }
+  $('#startInput').value = 'Finding you…';
+  navigator.geolocation.getCurrentPosition(
+    (p) => { S.start = { lat: p.coords.latitude, lng: p.coords.longitude, label: 'Current location', here: true }; $('#startInput').value = 'Current location'; map.setView([S.start.lat, S.start.lng], 11); },
+    () => { $('#startInput').value = ''; showErr('Location permission was denied. Type a start address instead.'); },
+    { enableHighAccuracy: true, timeout: 12000 }
+  );
+});
+
+async function resolve(slot, inputId, what) {
+  if (S[slot]) return S[slot];
+  const q = $(inputId).value.trim();
+  if (!q) throw new Error('Enter a ' + what + '.');
+  const res = await searchPlaces(q);
+  if (!res.length) throw new Error("Couldn't find “" + q + '”. Try a fuller address.');
+  S[slot] = { lat: res[0].lat, lng: res[0].lng, label: res[0].full };
+  $(inputId).value = res[0].full;
+  return S[slot];
+}
+
+/* ---------------- loop builder ---------------- */
+function loopWaypoints(start, minutes, radiusKm) {
+  const theta = S.heading === 'any' ? (S.loopSpin % 360) : +S.heading + (S.loopSpin % 3 - 1) * 20;
+  const center = destPoint(start, theta, radiusKm);
+  const back = (theta + 180) % 360;
+  const dir = S.loopDir;
+  return [90, 180, 270].map((a) => destPoint(center, (back + dir * a + 360) % 360, radiusKm));
+}
+async function buildLoop(start) {
+  const target = S.loopMin * 60;
+  let km = (S.loopMin / 60) * 58 / 1.4 / (2 * Math.PI);
+  let best = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const wps = loopWaypoints(start, S.loopMin, km);
+    const route = await getRoute([start, ...wps, start], 'fun');
+    const t = route.summary.travelTimeInSeconds;
+    if (!best || Math.abs(t - target) < Math.abs(best.route.summary.travelTimeInSeconds - target)) best = { route, wps };
+    const ratio = t / target;
+    if (ratio > 0.8 && ratio < 1.25) break;
+    km *= clamp(1 / ratio, 0.45, 2.2);
+  }
+  return best;
+}
+
+/* ---------------- main ---------------- */
+let runId = 0;
+async function go() {
+  showErr('');
+  if (!KEY) { openSettings(); return; }
+  const my = ++runId;
+  const btn = $('#goBtn'); btn.disabled = true; $('#loading').hidden = false;
+  try {
+    const start = await resolve('start', '#startInput', 'start');
+    let fun, fast = null, forced = [], dest;
+    if (S.mode === 'ab') {
+      dest = await resolve('end', '#endInput', 'finish');
+      const [a, b] = await Promise.all([getRoute([start, dest], 'fun'), getRoute([start, dest], 'fast').catch(() => null)]);
+      fun = analyze(a); if (b) fast = analyze(b);
+    } else {
+      dest = start;
+      const L = await buildLoop(start);
+      fun = analyze(L.route);
+      // pin each loop turnaround point where the route actually reached it
+      const wpInstr = fun.instr.filter((x) => /^WAYPOINT/.test(x.maneuver || ''));
+      forced = wpInstr.map((x) => pointAt(fun, (x.routeOffsetInMeters || 0) * fun.scale));
+    }
+    if (my !== runId) return;
+    const [e1, e2] = await Promise.all([getElevation(fun), fast ? getElevation(fast) : Promise.resolve(null)]);
+    fun.elev = e1; if (fast) fast.elev = e2;
+    if (my !== runId) return;
+    const wps = pickWaypoints(fun, forced);
+    draw(fun, fast, wps);
+    render(fun, fast, wps, start, dest);
+    store.set('switchback.last', JSON.stringify({ curves: S.curves, hills: S.hills, avoid: S.avoid }));
+  } catch (e) {
+    if (my === runId) showErr(e.message || String(e));
+  } finally {
+    if (my === runId) { btn.disabled = false; $('#loading').hidden = true; }
+  }
+}
+$('#goBtn').addEventListener('click', go);
+$('#endInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#endInput').blur(); go(); } });
+
+function bar(label, frac, value, note) {
+  return `<div class="bar"><div class="top-line"><span>${label}</span><span>${value}</span></div>
+    <div class="track"><i style="width:${Math.round(clamp(frac) * 100)}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
+}
+function profileSvg(elev) {
+  if (!elev) return '';
+  const P = elev.profile, W = 300, H = 60;
+  const zs = P.map((p) => p.z), lo = Math.min(...zs), hi = Math.max(...zs), span = Math.max(10, hi - lo);
+  const maxS = P[P.length - 1].s || 1;
+  const xy = P.map((p) => [(p.s / maxS) * W, H - 4 - ((p.z - lo) / span) * (H - 12)]);
+  const line = xy.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+  return `<div class="profile"><div class="section-h"><span class="label">Elevation</span><span class="label">${fmtInt(lo * FT)}–${fmtInt(hi * FT)} ft</span></div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Elevation profile from ${fmtInt(lo * FT)} to ${fmtInt(hi * FT)} feet">
+      <path d="${line} L${W} ${H} L0 ${H} Z" fill="var(--accent)" fill-opacity="0.22"/>
+      <path d="${line}" fill="none" stroke="var(--accent-ink)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+    </svg></div>`;
+}
+
+function render(fun, fast, wps, start, dest) {
+  const sc = score(fun), fsc = fast ? score(fast) : null;
+  const sum = fun.summary, tl = trafficLabel(fun.delayRatio);
+  const links = gmapsLinks(start, dest, wps);
+  const miles = fun.total / MI;
+  const hillsTxt = fun.elev ? `${fmtInt(fun.elev.up * FT)} ft climb` : 'no elevation data';
+  const vsFast = fast ? (() => {
+    const dt = sum.travelTimeInSeconds - fast.summary.travelTimeInSeconds, dd = fun.total - fast.total;
+    return `<b>${dt >= 0 ? '+' : '−'}${fmtDur(Math.abs(dt))}</b><span class="sub">${dd >= 0 ? '+' : '−'}${fmtMi(Math.abs(dd))} mi vs fastest</span>`;
+  })() : `<b>${esc(S.loopMin)} min</b><span class="sub">loop target</span>`;
+  const typical = sum.historicTrafficTravelTimeInSeconds, freeflow = sum.noTrafficTravelTimeInSeconds;
+
+  const best = fun.best.length ? `<ul class="stretches">${fun.best.map((b, i) => `<li><span class="rk"><span>${i + 1}</span></span>
+      <span class="nm"><b>${esc(b.name || 'Unnamed road')}</b><small>mile ${fmtMi(b.a)}–${fmtMi(b.b)} · ${bandLabel(b.c)}</small></span>
+      <span class="cv">${fmtInt(b.c)}</span></li>`).join('')}</ul>`
+    : `<p class="fine">No single stretch reaches 300 on the Curvature scale. Try “Very twisty”, or a start farther from the city.</p>`;
+
+  const incidents = fun.traffic.length
+    ? `<ul class="incidents">${fun.traffic.map((t) => `<li><span>${esc(CAT[t.cat] || 'Traffic')}${t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''}</span><span>mile ${fmtMi(t.at)}</span></li>`).join('')}</ul>`
+    : `<p class="fine">No jams, closures or road work reported on this route right now.</p>`;
+
+  const cmp = fast ? `<section class="card"><div class="section-h"><h3>Fun route vs fastest</h3></div><div class="tbl-wrap"><table>
+      <thead><tr><th></th><th>Fun</th><th>Fastest</th></tr></thead><tbody>
+      <tr><td>Distance</td><td>${fmtMi(fun.total)} mi</td><td>${fmtMi(fast.total)} mi</td></tr>
+      <tr><td>Drive time</td><td>${fmtDur(sum.travelTimeInSeconds)}</td><td>${fmtDur(fast.summary.travelTimeInSeconds)}</td></tr>
+      <tr><td>Traffic delay</td><td>${fmtDur(fun.delay)}</td><td>${fmtDur(fast.delay)}</td></tr>
+      <tr><td>In curves</td><td>${Math.round(fun.curveShare * 100)}%</td><td>${Math.round(fast.curveShare * 100)}%</td></tr>
+      <tr><td>Highway</td><td>${Math.round(fun.motorShare * 100)}%</td><td>${Math.round(fast.motorShare * 100)}%</td></tr>
+      <tr><td>Fun score</td><td>${sc.value}</td><td>${fsc.value}</td></tr>
+      </tbody></table></div></section>` : '';
+
+  $('#results').innerHTML = `
+  <div style="display:grid;gap:14px">
+  <section class="card">
+    <div class="verdict">
+      <div class="sign" aria-label="Fun score ${sc.value} out of 100"><div class="d"></div><div class="n">${sc.value}</div></div>
+      <div><span class="label">Fun score</span><h2>${scoreLabel(sc.value)}</h2>
+        <p>${Math.round(fun.curveShare * 100)}% of the drive in corners · ${hillsTxt}${fun.best[0] ? ' · best stretch on ' + esc(fun.best[0].name || 'an unnamed road') : ''}</p></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="label">Distance</span><b>${fmtMi(fun.total)} mi</b><span class="sub">${(miles * 1.609344).toFixed(miles < 10 ? 1 : 0)} km</span></div>
+      <div class="stat"><span class="label">Drive time</span><b>${fmtDur(sum.travelTimeInSeconds)}</b><span class="sub">with traffic</span></div>
+      <div class="stat"><span class="label">Traffic</span><b><span class="pill ${tl.cls}">${tl.t}</span></b><span class="sub">${fun.delay >= 60 ? '+' + fmtDur(fun.delay) + ' delay' : 'no delay'}</span></div>
+      <div class="stat"><span class="label">${fast ? 'Vs fastest' : 'Target'}</span>${vsFast}</div>
+    </div>
+    <div class="drive">
+      <a class="primary" href="${esc(links.app)}">Drive it in Google Maps</a>
+      <a class="secondary" href="${esc(links.web)}" target="_blank" rel="noopener">Open as a Google Maps link</a>
+      <p class="fine">Sends ${wps.length} stop${wps.length === 1 ? '' : 's'} (the numbered dots) so Google Maps stays on these roads. It uses its own live traffic on CarPlay. If Google Maps offers a faster road between stops, stay on the one shown here.</p>
+      ${S.mode === 'loop' ? '<button class="ghost" type="button" id="againBtn">Try a different loop</button>' : ''}
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-h"><h3>Why it scored ${sc.value}</h3><span class="label">${fmtMi(fun.total)} mi analyzed</span></div>
+    <div class="bars">
+      ${bar('Curves', sc.parts.curves, Math.round(fun.curveShare * 100) + '% in corners', fmtMi(fun.curveLen) + ' mi of corners, ' + fmtMi(fun.tightLen) + ' mi tight (under 60 m radius)')}
+      ${bar('Open road', sc.parts.open, Math.round(fun.motorShare * 100) + '% highway · ' + Math.round(fun.urbanShare * 100) + '% town', '')}
+      ${fun.elev ? bar('Hills', sc.parts.hills, fmtInt((fun.elev.up * FT) / miles) + ' ft/mi', fmtInt(fun.elev.up * FT) + ' ft up, ' + fmtInt(fun.elev.down * FT) + ' ft down, steepest about ' + Math.round(fun.elev.maxGrade * 100) + '%') : ''}
+      ${bar('Traffic', sc.parts.traffic, fun.delay >= 60 ? '+' + fmtDur(fun.delay) : 'no delay', typical ? 'Usually ' + fmtDur(typical) + ' at this hour · ' + fmtDur(freeflow || typical) + ' with empty roads' : '')}
+      ${bar('Flow', sc.parts.flow, fun.turnsPer10mi.toFixed(1) + ' turns per 10 mi', fun.turns + (fun.turns === 1 ? ' turn or junction' : ' turns and junctions') + ' in total')}
+    </div>
+    ${profileSvg(fun.elev)}
+  </section>
+
+  <section class="card">
+    <div class="section-h"><h3>Best stretches</h3><span class="label">Curvature</span></div>
+    ${best}
+  </section>
+
+  <section class="card">
+    <div class="section-h"><h3>Traffic on the route</h3><span class="pill ${tl.cls}">${tl.t}</span></div>
+    ${incidents}
+    <p class="fine">Red bands on the map mark slowdowns. Turn on “Traffic layer” to see live flow on every road nearby.</p>
+  </section>
+  ${cmp}
+  </div>`;
+  $('#results').hidden = false;
+  const again = $('#againBtn');
+  if (again) again.addEventListener('click', () => { S.loopSpin += S.heading === 'any' ? 83 : 1; S.loopDir *= -1; go(); });
+  $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+/* ---------------- settings ---------------- */
+const dlg = $('#settings');
+function openSettings() { $('#keyInput').value = KEY; if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+$('#settingsBtn').addEventListener('click', openSettings);
+$('#clearKey').addEventListener('click', () => { $('#keyInput').value = ''; });
+dlg.addEventListener('close', () => {
+  if (dlg.returnValue !== 'save') return;
+  KEY = $('#keyInput').value.trim();
+  if (KEY) store.set(KEY_NAME, KEY); else store.del(KEY_NAME);
+  $('#keyNotice').hidden = !!KEY;
+  if (trafficLayer) { map.removeLayer(trafficLayer); trafficLayer = null; $('#trafficLayerBtn').setAttribute('aria-pressed', 'false'); }
+  setBase();
+});
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { setBase(); if (lastDraw) draw(...lastDraw); });
+
+try {
+  const last = JSON.parse(store.get('switchback.last') || 'null');
+  if (last) {
+    if (last.curves) S.curves = last.curves; if (last.hills) S.hills = last.hills;
+    if (last.avoid) Object.assign(S.avoid, last.avoid);
+    document.querySelectorAll('.seg').forEach(syncSeg);
+    document.querySelectorAll('[data-avoid]').forEach((b) => b.setAttribute('aria-pressed', String(!!S.avoid[b.dataset.avoid])));
+  }
+} catch (e) {}
+$('#keyNotice').hidden = !!KEY;
+initMap();
+})();
+</script>
+</body>
+</html>
