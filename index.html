@@ -21,7 +21,7 @@
   --bg: #EEF0EE; --surface: #FFFFFF; --sunk: #E3E7E4; --ink: #1B1F1E; --muted: #58625F; --line: #D2D8D4;
   --accent: #F2C200; --accent-ink: #7A5A00; --on-accent: #16140A;
   --route: #2F5E82; --casing: #FFFFFF; --fast: #7D8784; --alt: #8C9A95;
-  --c1: #E7B800; --c2: #EE8A00; --c3: #DB4F1E; --c4: #B51D3B;
+  --c0: #9BB7C9; --c1: #E7B800; --c2: #EE8A00; --c3: #DB4F1E; --c4: #B51D3B;
   --good: #23784C; --warn: #A86F00; --bad: #BF3526;
   --font-display: "Overpass", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -34,7 +34,7 @@
     --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
     --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
     --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490; --alt: #56615C;
-    --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
+    --c0: #5C87A6; --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
     --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
     color-scheme: dark;
   }
@@ -43,7 +43,7 @@
   --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
   --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
   --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490; --alt: #56615C;
-  --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
+  --c0: #5C87A6; --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
   --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
   color-scheme: dark;
 }
@@ -357,7 +357,7 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
       <button class="go" type="button" id="optBtn">Maximize fun</button>
       <button class="go alt" type="button" id="quickBtn">Quick route</button>
     </div>
-    <p class="hint" id="budgetHint">Maximize tests up to about 20 routes (about 1% of your free daily TomTom requests).</p>
+    <p class="hint" id="budgetHint">Maximize tests 20 to 45 routes, about 1–2% of your free daily TomTom requests, and takes 20–40 seconds.</p>
     <div class="msg err" id="err" role="alert" hidden></div>
   </section>
 
@@ -369,6 +369,7 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
     <div class="legend" aria-hidden="true">
       <span>Corner radius</span>
       <span class="sw"><i style="background:var(--route)"></i> straight</span>
+      <span class="sw"><i style="background:var(--c0)"></i> sweeper</span>
       <span class="sw"><i style="background:var(--c1)"></i> &lt;175 m</span>
       <span class="sw"><i style="background:var(--c2)"></i> &lt;100 m</span>
       <span class="sw"><i style="background:var(--c3)"></i> &lt;60 m</span>
@@ -387,15 +388,15 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
   <section class="card">
     <details>
       <summary>How the score and the optimizer work</summary>
-      <p>Each route is resampled every 20 m and the radius of every bend is measured, the method the Curvature project (roadcurvature.com) uses to rank roads. Corners near turns and intersections don't count, so a city grid doesn't look twisty.</p>
+      <p>The route is traced every 10 m and the bend radius is measured from how much the road's heading turns over 60 m. Tight corners count more, following the Curvature project (roadcurvature.com). Bends at junctions, on interstates and on ramps don't count, and bends in town count half.</p>
       <ul>
-        <li><b>Curves.</b> Share of the drive in corners tighter than 175 m radius. Full marks at 35%.</li>
+        <li><b>Curves.</b> Weighted corner length per mile. Sweepers (under 400 m radius) count a little, corners under 175 m count fully, hairpins count double. Full marks at 350 per mile, a drive that is mostly twisty back roads.</li>
+        <li><b>Hills.</b> Feet climbed per mile. Full marks at 70 ft/mi.</li>
         <li><b>Open road.</b> Share of the drive off interstates and out of town.</li>
-        <li><b>Hills.</b> Feet climbed per mile. Full marks at 80 ft/mi.</li>
-        <li><b>Traffic.</b> Live delay as a share of drive time. Zero at 25% delay.</li>
-        <li><b>Flow.</b> Turns and junctions per 10 miles. Fewer means fewer stops.</li>
+        <li><b>Traffic</b> and <b>Stops and turns</b> take points away instead of adding them. At 10, heavy traffic or constant turns can cut the score in half. At 0 they're ignored.</li>
       </ul>
-      <p>The fun score is the average of those five, weighted by your sliders. <b>Maximize fun</b> tries every Auto setting, then tries detours off to each side (A to B) or loops heading out in eight directions (Loop), and keeps the best route inside your time limit.</p>
+      <p><b>What's a good score?</b> Under 20 is a city drive. 20–40 has some good stretches. 40–60 is a good drive. 60–75 is great, mostly twisty back roads. 75+ is the best there is around here. Loops starting downtown spend a lot of time getting out of town, so 40–50 is a strong result for a 90-minute loop from downtown. Longer loops, or starting farther out, can reach 70+.</p>
+      <p><b>Loops.</b> Maximize takes the fastest roads out to a “fun zone”, drives a twisty loop there, and takes the fastest roads back. It tests 24 zones (8 directions at 3 distances), fine-tunes the best 4 to fit your time, then tries nudging the winner. <b>A to B</b> does the same with detours off either side of the direct route.</p>
       <p>Road ratings use Curvature's scale: 300+ has a few good corners, 1,000+ is a fun road, 3,000+ is worth a trip.</p>
     </details>
   </section>
@@ -430,21 +431,21 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
-const KEY_NAME = 'switchback.tomtomKey', PREFS = 'switchback.prefs.v2';
+const KEY_NAME = 'switchback.tomtomKey', PREFS = 'switchback.prefs.v3';
 let KEY = store.get(KEY_NAME) || '';
 
 const FACTORS = [
-  { k: 'curves', name: 'Curves', sub: 'time spent cornering' },
-  { k: 'open', name: 'Open road', sub: 'off highways, out of town' },
-  { k: 'hills', name: 'Hills', sub: 'elevation change' },
-  { k: 'traffic', name: 'Traffic', sub: 'less delay' },
-  { k: 'flow', name: 'Flow', sub: 'fewer turns and stops' },
+  { k: 'curves', name: 'Curves', sub: 'twisty roads', kind: 'good' },
+  { k: 'hills', name: 'Hills', sub: 'elevation change', kind: 'good' },
+  { k: 'open', name: 'Open road', sub: 'off highways, out of town', kind: 'good' },
+  { k: 'traffic', name: 'Traffic', sub: 'how much delays bother you', kind: 'pen' },
+  { k: 'flow', name: 'Stops and turns', sub: 'how much they bother you', kind: 'pen' },
 ];
 const PRESETS = {
-  balanced: { curves: 8, open: 4, hills: 3, traffic: 3, flow: 2 },
-  curves: { curves: 10, open: 3, hills: 1, traffic: 1, flow: 1 },
-  hills: { curves: 5, open: 4, hills: 10, traffic: 2, flow: 1 },
-  calm: { curves: 5, open: 6, hills: 2, traffic: 8, flow: 7 },
+  balanced: { curves: 10, hills: 3, open: 4, traffic: 4, flow: 3 },
+  curves: { curves: 10, hills: 1, open: 2, traffic: 2, flow: 2 },
+  hills: { curves: 6, hills: 10, open: 4, traffic: 3, flow: 2 },
+  calm: { curves: 6, hills: 2, open: 6, traffic: 9, flow: 8 },
 };
 const S = {
   mode: 'ab', curves: 'auto', hills: 'auto', hw: 'allow', toll: 'allow', heading: 'auto', leave: 'now',
@@ -505,21 +506,29 @@ function departParam() {
   return v.length === 16 ? v + ':00' : v;
 }
 
-/* cfg: { type:'thrilling'|'fastest', w, h, hw:bool, toll:bool, loop:bool, rects:[{s,w,n,e}] } */
+/* cfg: { type:'thrilling'|'fastest', w, h, hw:bool, toll:bool, loop:bool, rects:[{s,w,n,e}], ends:'fast' }
+   ends:'fast' drives the first and last leg on the fastest roads and every leg in between as a twisty route. */
+function legTypes(cfg, nLegs) {
+  const tw = { routeType: 'thrilling', windingness: cfg.w, hilliness: cfg.h }, fast = { routeType: 'fastest' };
+  return Array.from({ length: nLegs }, (_, i) => (cfg.ends === 'fast' && nLegs >= 3 && (i === 0 || i === nLegs - 1) ? fast : tw));
+}
 async function getRoute(locs, cfg) {
   const p = [['traffic', 'true'], ['travelMode', 'car'], ['instructionsType', 'coded'], ['computeTravelTimeFor', 'all'],
     ['sectionType', 'traffic'], ['sectionType', 'motorway'], ['sectionType', 'urban']];
-  if (cfg.type === 'thrilling') p.push(['routeType', 'thrilling'], ['windingness', cfg.w], ['hilliness', cfg.h]);
-  else p.push(['routeType', 'fastest']);
+  const perLeg = cfg.type === 'thrilling' && cfg.ends === 'fast' && locs.length >= 4;
+  if (cfg.type === 'thrilling' && !perLeg) p.push(['routeType', 'thrilling'], ['windingness', cfg.w], ['hilliness', cfg.h]);
+  else if (!perLeg) p.push(['routeType', 'fastest']);
   if (S.avoid.unpavedRoads) p.push(['avoid', 'unpavedRoads']);
   if (S.avoid.ferries) p.push(['avoid', 'ferries']);
   if (cfg.hw) p.push(['avoid', 'motorways']);
   if (cfg.toll) p.push(['avoid', 'tollRoads']);
   if (cfg.loop) p.push(['avoid', 'alreadyUsedRoads']);
   const dep = departParam(); if (dep) p.push(['departAt', dep]);
-  const body = cfg.rects && cfg.rects.length ? { avoidAreas: { rectangles: cfg.rects.map((r) => ({ southWestCorner: { latitude: r.s, longitude: r.w }, northEastCorner: { latitude: r.n, longitude: r.e } })) } } : null;
+  const body = {};
+  if (perLeg) body.legs = legTypes(cfg, locs.length - 1);
+  if (cfg.rects && cfg.rects.length) body.avoidAreas = { rectangles: cfg.rects.map((r) => ({ southWestCorner: { latitude: r.s, longitude: r.w }, northEastCorner: { latitude: r.n, longitude: r.e } })) };
   const path = '/routing/1/calculateRoute/' + locs.map((l) => l.lat.toFixed(6) + ',' + l.lng.toFixed(6)).join(':') + '/json';
-  const j = await tt(path, p, body);
+  const j = await tt(path, p, Object.keys(body).length ? body : null);
   if (!j || !j.routes || !j.routes.length) { const e = new Error('No route found.'); e.soft = true; throw e; }
   return j.routes[0];
 }
@@ -537,25 +546,53 @@ async function searchPlaces(q) {
   });
 }
 
-async function getElevation(an) {
-  const m = an.smp.length; const k = Math.min(100, m);
+const ELEV_PTS = 40, ELEV_BUDGET = 520; // points per route, points per rolling minute
+const elevLog = [];
+async function elevSlot(n) {
+  for (;;) {
+    const now = Date.now();
+    while (elevLog.length && now - elevLog[0].t > 61000) elevLog.shift();
+    const used = elevLog.reduce((a, x) => a + x.n, 0);
+    if (used + n <= ELEV_BUDGET) { elevLog.push({ t: now, n }); return; }
+    await sleep(Math.max(500, 61000 - (now - elevLog[0].t)));
+  }
+}
+let elevChain = Promise.resolve();
+function getElevation(an) {
+  const job = elevChain.then(() => fetchElevation(an));
+  elevChain = job.catch(() => null);
+  return job;
+}
+async function fetchElevation(an) {
+  const m = an.smp.length; const k = Math.min(ELEV_PTS, m);
   if (k < 2) return null;
   const idx = []; for (let i = 0; i < k; i++) idx.push(Math.round(i * (m - 1) / (k - 1)));
   const lat = idx.map((i) => an.smp[i].lat.toFixed(5)).join(',');
   const lng = idx.map((i) => an.smp[i].lng.toFixed(5)).join(',');
-  try {
-    const r = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lat + '&longitude=' + lng);
-    if (!r.ok) return null;
-    const j = await r.json();
-    const e = j.elevation; if (!Array.isArray(e) || e.length !== k) return null;
-    let up = 0, down = 0, maxGrade = 0;
-    for (let i = 1; i < k; i++) {
-      const dz = e[i] - e[i - 1]; const dx = an.smp[idx[i]].s - an.smp[idx[i - 1]].s;
-      if (dz > 0) up += dz; else down -= dz;
-      if (dx >= 150) maxGrade = Math.max(maxGrade, Math.abs(dz) / dx);
-    }
-    return { up, down, maxGrade, profile: idx.map((i, n) => ({ s: an.smp[i].s, z: e[n] })) };
-  } catch (e) { return null; }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await elevSlot(k);
+    try {
+      const r = await fetch('https://api.open-meteo.com/v1/elevation?latitude=' + lat + '&longitude=' + lng);
+      if (r.status === 429) { await sleep(20000); continue; }
+      if (!r.ok) return null;
+      const e = (await r.json()).elevation; if (!Array.isArray(e) || e.length !== k) return null;
+      let up = 0, down = 0, maxGrade = 0;
+      for (let i = 1; i < k; i++) {
+        const dz = e[i] - e[i - 1]; const dx = an.smp[idx[i]].s - an.smp[idx[i - 1]].s;
+        if (dz > 0) up += dz; else down -= dz;
+        if (dx >= 150) maxGrade = Math.max(maxGrade, Math.abs(dz) / dx);
+      }
+      return { up, down, maxGrade, profile: idx.map((i, n) => ({ s: an.smp[i].s, z: e[n] })) };
+    } catch (e) { return null; }
+  }
+  return null;
+}
+async function ensureElevation(list) {
+  for (const c of list) {
+    if (!c || c.elevTried) continue;
+    c.elevTried = true;
+    c.an.elev = await getElevation(c.an);
+  }
 }
 
 /* ---------------- geometry ---------------- */
@@ -587,19 +624,31 @@ function destPoint(p, bearingDeg, km) {
   return { lat: la2 / toR, lng: ((lo2 / toR + 540) % 360) - 180 };
 }
 
-const LEVEL_W = [0, 1, 1.3, 1.6, 2];
-const levelOf = (r) => (r < 30 ? 4 : r < 60 ? 3 : r < 100 ? 2 : r < 175 ? 1 : 0);
+/* Curve levels: 0 straight, 1 sweeper (<400 m radius), 2 corner (<175 m), 3 (<100 m), 4 tight (<60 m), 5 hairpin (<30 m).
+   Weights follow the Curvature project for 2–5; sweepers count a little because they're fun at speed in a car. */
+const LEVEL_W = [0, 0.35, 1, 1.3, 1.6, 2];
+const levelOf = (r) => (r < 30 ? 5 : r < 60 ? 4 : r < 100 ? 3 : r < 175 ? 2 : r < 400 ? 1 : 0);
+const RAMPISH = /EXIT|ENTER_|MOTORWAY|FREEWAY|HIGHWAY|ROUNDABOUT|RAMP/;
 
 function analyze(route) {
-  const pts = route.legs.flatMap((l) => l.points).map((p) => [p.latitude, p.longitude]);
+  // join the legs, dropping the point each leg repeats, and remember where TomTom's point indexes land
+  const pts = [], rawMap = [];
+  for (const l of route.legs) for (const p of l.points) {
+    const last = pts[pts.length - 1];
+    if (!last || last[0] !== p.latitude || last[1] !== p.longitude) pts.push([p.latitude, p.longitude]);
+    rawMap.push(pts.length - 1);
+  }
   const n = pts.length;
   const d = new Float64Array(n);
   for (let i = 1; i < n; i++) d[i] = d[i - 1] + hav(pts[i - 1], pts[i]);
   const total = d[n - 1] || 1;
   const sum = route.summary;
   const scale = total / (sum.lengthInMeters || total);
+  const sAt = (raw) => d[rawMap[clamp(raw, 0, rawMap.length - 1)]];
 
-  const STEP = 20, smp = [];
+  // resample every 10 m; bend radius = 60 m of road / how far the heading turns over it.
+  // This works the same whether TomTom sends a point every 10 m or every 100 m.
+  const STEP = 10, HALF = 3, smp = [];
   let j = 0;
   for (let s = 0; s < total; s += STEP) {
     while (j < n - 2 && d[j + 1] < s) j++;
@@ -607,36 +656,57 @@ function analyze(route) {
     smp.push({ lat: pts[j][0] + (pts[j + 1][0] - pts[j][0]) * t, lng: pts[j][1] + (pts[j + 1][1] - pts[j][1]) * t, s });
   }
   smp.push({ lat: pts[n - 1][0], lng: pts[n - 1][1], s: total });
-  const m = smp.length;
+  const m = smp.length, M = m - 1, toR = Math.PI / 180;
+  const hd = new Float64Array(M);
+  for (let i = 0; i < M; i++) { const a = smp[i], b = smp[i + 1]; hd[i] = Math.atan2((b.lng - a.lng) * Math.cos(a.lat * toR), b.lat - a.lat); }
+  const lvl = new Uint8Array(M);
+  for (let i = HALF; i < M - HALF; i++) {
+    let dh = hd[i + HALF] - hd[i - HALF];
+    while (dh > Math.PI) dh -= 2 * Math.PI; while (dh < -Math.PI) dh += 2 * Math.PI;
+    dh = Math.abs(dh);
+    if (dh > 1e-6) lvl[i] = levelOf((2 * HALF * STEP) / dh);
+  }
 
-  const R = new Float64Array(m).fill(Infinity);
-  for (let i = 1; i < m - 1; i++) R[i] = circumR(smp[i - 1], smp[i], smp[i + 1]);
-  const lvl = new Uint8Array(m - 1);
-  for (let i = 0; i < m - 1; i++) lvl[i] = levelOf(Math.max(R[i], R[i + 1]));
+  // road class per sample: 2 interstate/freeway, 1 in town, 0 open road (freeway wins where TomTom reports both)
+  const cls = new Uint8Array(M); const traffic = [];
+  for (const sct of route.sections || []) {
+    const a = clamp(Math.floor(sAt(sct.startPointIndex) / STEP), 0, M - 1), b = clamp(Math.ceil(sAt(sct.endPointIndex) / STEP), 0, M - 1);
+    if (sct.sectionType === 'MOTORWAY') for (let i = a; i <= b; i++) cls[i] = 2;
+    else if (sct.sectionType === 'URBAN') { for (let i = a; i <= b; i++) if (cls[i] !== 2) cls[i] = 1; }
+    else if (sct.sectionType === 'TRAFFIC') traffic.push({
+      cat: sct.simpleCategory || 'OTHER', delay: sct.delayInSeconds || 0, at: sAt(sct.startPointIndex),
+      ll: pts.slice(rawMap[clamp(sct.startPointIndex, 0, rawMap.length - 1)], rawMap[clamp(sct.endPointIndex, 0, rawMap.length - 1)] + 1),
+    });
+  }
 
+  // bends that aren't fun: at turns and junctions, on freeways, and on ramps and roundabouts
   const instr = ((route.guidance && route.guidance.instructions) || []).map((x) => ({ ...x, off: (x.routeOffsetInMeters || 0) * scale }));
   for (const x of instr) {
-    if (/^(DEPART|ARRIVE)/.test(x.maneuver || '')) continue;
-    const a = Math.max(0, Math.floor((x.off - 35) / STEP)), b = Math.min(m - 2, Math.ceil((x.off + 35) / STEP));
+    const mv = x.maneuver || '';
+    if (/^(DEPART|ARRIVE|WAYPOINT)/.test(mv)) continue;
+    const ramp = RAMPISH.test(mv);
+    const a = Math.max(0, Math.floor((x.off - (ramp ? 100 : 40)) / STEP)), b = Math.min(M - 1, Math.ceil((x.off + (ramp ? 500 : 40)) / STEP));
     for (let i = a; i <= b; i++) lvl[i] = 0;
   }
-  for (let i = 1; i < m - 2; i++) if (lvl[i] && !lvl[i - 1] && !lvl[i + 1]) lvl[i] = 0;
+  for (let i = 0; i < M; i++) if (cls[i] === 2) lvl[i] = 0;
 
-  const cum = new Float64Array(m); // cumulative curvature at each sample
-  let curveLen = 0, tightLen = 0;
-  for (let i = 0; i < m - 1; i++) {
+  const cum = new Float64Array(m);
+  let curveLen = 0, sweepLen = 0, tightLen = 0, motor = 0, urban = 0;
+  for (let i = 0; i < M; i++) {
     const L = smp[i + 1].s - smp[i].s;
-    cum[i + 1] = cum[i] + LEVEL_W[lvl[i]] * L;
-    if (lvl[i]) curveLen += L;
-    if (lvl[i] >= 3) tightLen += L;
+    cum[i + 1] = cum[i] + LEVEL_W[lvl[i]] * L * (cls[i] === 1 ? 0.5 : 1);
+    if (lvl[i] >= 2) curveLen += L; else if (lvl[i] === 1) sweepLen += L;
+    if (lvl[i] >= 4) tightLen += L;
+    if (cls[i] === 2) motor += L; else if (cls[i] === 1) urban += L;
   }
   const curvature = cum[m - 1];
-  const curvBetween = (a, b) => { const i = clamp(Math.round(a / STEP), 0, m - 1), k = clamp(Math.round(b / STEP), 0, m - 1); return cum[k] - cum[i]; };
+  const curvBetween = (a, b) => cum[clamp(Math.round(b / STEP), 0, m - 1)] - cum[clamp(Math.round(a / STEP), 0, m - 1)];
 
+  // colored runs for the map, simplified to every 20 m
   const runs = []; let cur = null;
-  for (let i = 0; i < m - 1; i++) {
+  for (let i = 0; i < M; i++) {
     if (!cur || cur.lvl !== lvl[i]) { cur = { lvl: lvl[i], ll: [[smp[i].lat, smp[i].lng]] }; runs.push(cur); }
-    cur.ll.push([smp[i + 1].lat, smp[i + 1].lng]);
+    if (i % 2 === 1 || i === M - 1) cur.ll.push([smp[i + 1].lat, smp[i + 1].lng]);
   }
 
   // named roads along the route (one row per road, consecutive same names merged)
@@ -653,31 +723,22 @@ function analyze(route) {
     roads.push({ name, num, a, b });
   }
   for (const r of roads) {
-    r.len = r.b - r.a; r.c = curvBetween(r.a, r.b);
+    r.len = r.b - r.a; r.c = curvBetween(r.a, r.b); r.cpm = r.c / Math.max(0.1, r.len / MI);
     r.key = (r.name + '|' + Math.round(r.a / 200)).toLowerCase();
-    if (r.num && !r.name.includes(r.num)) r.label = r.name + ' (' + r.num + ')'; else r.label = r.name;
+    r.label = r.num && !r.name.includes(r.num) ? r.name + ' (' + r.num + ')' : r.name;
   }
+  const funLen = roads.filter((r) => r.len >= 800 && r.cpm >= 300).reduce((a, r) => a + r.len, 0);
 
-  const idxS = (k) => d[Math.min(Math.max(k, 0), n - 1)];
-  let motor = 0, urban = 0; const traffic = [];
-  for (const sct of route.sections || []) {
-    const L = idxS(sct.endPointIndex) - idxS(sct.startPointIndex);
-    if (sct.sectionType === 'MOTORWAY') motor += L;
-    else if (sct.sectionType === 'URBAN') urban += L;
-    else if (sct.sectionType === 'TRAFFIC') traffic.push({
-      cat: sct.simpleCategory || 'OTHER', delay: sct.delayInSeconds || 0, at: idxS(sct.startPointIndex),
-      ll: pts.slice(sct.startPointIndex, Math.min(sct.endPointIndex, n - 1) + 1),
-    });
-  }
   const turns = instr.filter((x) => !/^(DEPART|ARRIVE|WAYPOINT)/.test(x.maneuver || '')).length;
   const delay = sum.trafficDelayInSeconds || 0;
   const moving = Math.max(60, (sum.travelTimeInSeconds || 0) - delay);
   const bestRoad = roads.filter((r) => r.c >= 300).sort((a, b) => b.c - a.c)[0] || null;
+  const legTimes = (route.legs || []).map((l) => (l.summary && l.summary.travelTimeInSeconds) || 0);
 
   return {
-    route, pts, d, total, scale, smp, runs, instr, roads, bestRoad,
-    curvature, curveLen, tightLen, curveShare: curveLen / total,
-    motorShare: motor / total, urbanShare: urban / total, traffic,
+    route, pts, total, scale, smp, runs, instr, roads, bestRoad, legTimes,
+    curvature, cpm: curvature / (total / MI), curveLen, sweepLen, tightLen, funLen,
+    curveShare: curveLen / total, motorShare: motor / total, urbanShare: urban / total, traffic,
     turns, turnsPer10mi: turns / (total / MI) * 10,
     delay, delayRatio: delay / moving, summary: sum, elev: null,
   };
@@ -685,20 +746,25 @@ function analyze(route) {
 
 function factorValues(an) {
   return {
-    curves: clamp(an.curveShare / 0.35),
+    curves: clamp((an.cpm - 50) / 300),
+    hills: an.elev ? clamp((an.elev.up * FT) / (an.total / MI) / 70) : null,
     open: 1 - clamp(an.motorShare + an.urbanShare),
-    hills: an.elev ? clamp((an.elev.up * FT) / (an.total / MI) / 80) : null,
     traffic: 1 - clamp(an.delayRatio / 0.25),
     flow: 1 - clamp((an.turnsPer10mi - 2) / 10),
   };
 }
+/* Curves, hills and open road are averaged by your weights. Traffic and stops then take points away:
+   at weight 10 the worst traffic halves the score, at 0 it's ignored. */
 function score(an) {
   const parts = factorValues(an);
   let tot = 0, wt = 0;
-  for (const f of FACTORS) { const w = S.weights[f.k]; if (!w || parts[f.k] === null) continue; tot += w * parts[f.k]; wt += w; }
-  return { value: wt ? Math.round((tot / wt) * 100) : 0, parts };
+  for (const f of FACTORS) { if (f.kind !== 'good') continue; const w = S.weights[f.k]; if (!w || parts[f.k] === null) continue; tot += w * parts[f.k]; wt += w; }
+  let v = wt ? tot / wt : 0;
+  const pen = {};
+  for (const f of FACTORS) { if (f.kind !== 'pen') continue; const cut = (S.weights[f.k] / 20) * (1 - parts[f.k]); pen[f.k] = cut; v *= 1 - cut; }
+  return { value: Math.round(v * 100), parts, pen, base: wt ? Math.round((tot / wt) * 100) : 0 };
 }
-const scoreLabel = (v) => (v < 25 ? 'Basically a commute' : v < 45 ? 'Some fun bits' : v < 65 ? 'Good drive' : v < 80 ? 'Great drive' : 'Epic drive');
+const scoreLabel = (v) => (v < 20 ? 'Basically a commute' : v < 40 ? 'Some fun stretches' : v < 60 ? 'Good drive' : v < 75 ? 'Great drive' : 'Epic drive');
 const bandLabel = (c) => (c >= 10000 ? 'epic road' : c >= 3000 ? 'worth a trip' : c >= 1000 ? 'fun road' : c >= 300 ? 'a few good corners' : 'mostly straight');
 const bandCls = (c) => (c >= 1000 ? 'good' : c >= 300 ? 'warn' : 'mute');
 function trafficLabel(r) {
@@ -780,7 +846,7 @@ function draw(c, fit = true) {
   if (!map || !c) return;
   routeGroup.clearLayers(); highlight = null;
   const an = c.an;
-  const colors = [tok('--route'), tok('--c1'), tok('--c2'), tok('--c3'), tok('--c4')];
+  const colors = [tok('--route'), tok('--c0'), tok('--c1'), tok('--c2'), tok('--c3'), tok('--c4')];
   for (const o of RUN.cands) if (o !== c && o.ok) L.polyline(o.an.pts, { color: tok('--alt'), weight: 3, opacity: 0.55 }).addTo(routeGroup)
     .on('click', () => select(o.id, true)).bindTooltip(o.label + ' · ' + o.sc.value, { sticky: true });
   if (RUN.fast) L.polyline(RUN.fast.pts, { color: tok('--fast'), weight: 4, opacity: 0.85, dashArray: '2 9', lineCap: 'round' }).addTo(routeGroup).bindTooltip('Fastest route', { sticky: true });
@@ -788,7 +854,7 @@ function draw(c, fit = true) {
     .bindTooltip((CAT[t.cat] || 'Traffic') + (t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''), { sticky: true });
   for (const r of c.cfg.rects || []) L.rectangle([[r.s, r.w], [r.n, r.e]], { color: tok('--bad'), weight: 1, fillOpacity: 0.25 }).addTo(routeGroup).bindTooltip('Skipped');
   L.polyline(an.pts, { color: tok('--casing'), weight: 9, opacity: 0.9 }).addTo(routeGroup);
-  for (const r of an.runs) L.polyline(r.ll, { color: colors[r.lvl], weight: r.lvl ? 6 : 5, opacity: 1 }).addTo(routeGroup);
+  for (const r of an.runs) L.polyline(r.ll, { color: colors[r.lvl], weight: r.lvl > 1 ? 6 : 5, opacity: 1 }).addTo(routeGroup);
   const s = an.pts[0], e = an.pts[an.pts.length - 1];
   L.circleMarker(s, { radius: 8, color: tok('--casing'), weight: 3, fillColor: tok('--ink'), fillOpacity: 1 }).addTo(routeGroup).bindTooltip('Start');
   if (RUN.mode === 'ab') L.marker(e, { icon: L.divIcon({ className: 'end-pin', iconSize: [16, 16] }) }).addTo(routeGroup).bindTooltip('Finish');
@@ -843,11 +909,13 @@ function buildWeights() {
   syncWeights();
 }
 function syncWeights() {
-  const tot = FACTORS.reduce((a, f) => a + S.weights[f.k], 0) || 1;
+  const tot = FACTORS.filter((f) => f.kind === 'good').reduce((a, f) => a + S.weights[f.k], 0) || 1;
   for (const f of FACTORS) {
     const o = $('#wo_' + f.k), w = S.weights[f.k];
     $('#w_' + f.k).value = w;
-    o.textContent = w ? Math.round(w / tot * 100) + '%' : 'off'; o.classList.toggle('off', !w);
+    o.textContent = !w ? 'off' : f.kind === 'good' ? Math.round((w / tot) * 100) + '%' : '−' + Math.round(w * 5) + '%';
+    o.title = f.kind === 'good' ? 'Share of the score' : 'Most it can take off the score';
+    o.classList.toggle('off', !w);
   }
 }
 $('#presets').addEventListener('click', (e) => {
@@ -903,12 +971,14 @@ async function resolve(slot, inputId, what) {
 /* ---------------- candidates ---------------- */
 const RUN = { mode: 'ab', cands: [], fast: null, start: null, dest: null, selected: null, userPicked: false, target: 0, tested: 0, failed: 0 };
 let cid = 0;
+const DIR_NAME = { north: 'North', northeast: 'Northeast', east: 'East', southeast: 'Southeast', south: 'South', southwest: 'Southwest', west: 'West', northwest: 'Northwest' };
 function labelFor(cfg, meta) {
   const bits = [CURVE_NAME[cfg.w] || 'Fastest', HILL_NAME[cfg.h]].filter(Boolean);
   let s = bits.join(', ');
   if (cfg.hw) s += ' · no highways'; if (cfg.toll) s += ' · no tolls';
-  if (meta.detour) s += ' · detour ' + meta.detour;
-  if (meta.heading !== undefined) s = 'Loop ' + compass(meta.heading) + ' · ' + s;
+  if (meta.zone) s = DIR_NAME[compass(meta.zone.h)] + ' loop, ' + Math.max(1, Math.round(meta.zone.D / 1.609)) + ' mi out · ' + s;
+  else if (meta.dz) s = 'Detour ' + compass(meta.dz.dir) + (meta.dz.frac < 0.5 ? ', early' : ', late') + (meta.dz.wide ? ', wide' : '') + ' · ' + s;
+  else if (RUN.mode === 'ab') s = 'Direct · ' + s;
   if (meta.edit) s = 'Your edit · ' + s;
   return s;
 }
@@ -916,7 +986,6 @@ async function evaluate(locs, cfg, meta = {}) {
   try {
     const route = await getRoute(locs, cfg);
     const an = analyze(route);
-    an.elev = await getElevation(an);
     const c = { id: ++cid, cfg, locs, meta, an, marks: {}, label: labelFor(cfg, meta) };
     c.stops = pickStops(an, S.stops);
     RUN.tested++;
@@ -927,6 +996,7 @@ async function evaluate(locs, cfg, meta = {}) {
     return null;
   }
 }
+const LOOP_TOL = 0.2; // loops within ±20% of the target time count as fitting
 function judge(c) {
   c.sc = score(c.an);
   const t = c.an.summary.travelTimeInSeconds;
@@ -935,7 +1005,7 @@ function judge(c) {
     c.ok = S.maxExtra >= 125 || c.extra === null || c.extra <= S.maxExtra * 60 + 30;
   } else {
     c.extra = t - RUN.target;
-    c.ok = Math.abs(t / RUN.target - 1) <= 0.3;
+    c.ok = Math.abs(t / RUN.target - 1) <= LOOP_TOL;
   }
 }
 function ranked() {
@@ -950,103 +1020,148 @@ async function runPool(tasks, onDone) {
   await Promise.all([worker(), worker()]);
   return out;
 }
-
-function autoList(v, all) { return v === 'auto' ? all : [v]; }
-const W_ALL = ['high', 'normal', 'low'], H_ALL = ['normal', 'high', 'low'];
+function progress(plan) {
+  let done = 0;
+  return (msg) => { done++; setProgress(msg + ' · ' + done + (done < plan ? ' of about ' + plan : ''), Math.min(0.97, done / plan)); };
+}
 const boolList = (v) => (v === 'auto' ? [false, true] : [v === 'avoid']);
+function baseCfg(extra) {
+  return { type: 'thrilling', w: S.curves === 'auto' ? 'high' : S.curves, h: S.hills === 'auto' ? 'normal' : S.hills, hw: S.hw === 'avoid', toll: S.toll === 'avoid', ...extra };
+}
+function settingVariants(c) { // other curve/hill settings worth one try each when set to Auto (TomTom often returns the same roads)
+  const v = [];
+  if (S.curves === 'auto') v.push({ ...c.cfg, w: c.cfg.w === 'high' ? 'normal' : 'high' });
+  if (S.hills === 'auto') v.push({ ...c.cfg, h: c.cfg.h === 'high' ? 'normal' : 'high' });
+  return v;
+}
+function avoidVariants(c) {
+  const v = [];
+  for (const hw of boolList(S.hw)) for (const toll of boolList(S.toll)) if (!(hw === c.cfg.hw && toll === c.cfg.toll)) v.push({ ...c.cfg, hw, toll });
+  return v;
+}
+function uniqueRoute(list, c) { // drop repeats: same length and time as a route we already have
+  if (!c) return false;
+  const k = Math.round(c.an.total / 50) + ':' + Math.round(c.an.summary.travelTimeInSeconds / 20);
+  if (list.some((o) => o.key === k)) return false;
+  c.key = k; list.push(c); return true;
+}
+function addCands(list) { for (const c of list) uniqueRoute(RUN.cands, c); }
 
-/* ---------- A to B optimizer ---------- */
+/* ---------- A to B optimizer ----------
+   Tries the direct twisty route, then "fun zone" detours: fastest roads to a zone off to one side, a twisty
+   stretch through it, fastest roads on to the finish. Detours that blow the time limit get pulled in once. */
+function detourLocs(start, dest, z) {
+  const D = havP(start, dest) / 1000, brg = bearing(start, dest);
+  const Z = destPoint(destPoint(start, brg, D * z.frac), z.dir, z.off);
+  return [start, destPoint(Z, bearing(Z, start), z.r), destPoint(Z, z.dir, z.r), destPoint(Z, bearing(Z, dest), z.r), dest];
+}
 async function optimizeAB(start, dest, quick) {
-  const Ws = quick ? [S.curves === 'auto' ? 'high' : S.curves] : autoList(S.curves, W_ALL);
-  const Hs = quick ? [S.hills === 'auto' ? 'normal' : S.hills] : autoList(S.hills, H_ALL);
-  const HWs = quick ? [S.hw === 'avoid'] : boolList(S.hw), TLs = quick ? [S.toll === 'avoid'] : boolList(S.toll);
-  const detours = !quick && S.maxExtra > 0;
-  const plan = Ws.length * Hs.length + (HWs.length * TLs.length - 1) + (detours ? 6 : 0) + 1;
-  let done = 0; const tick = (msg) => { done++; setProgress((msg || 'Testing routes') + ' · ' + done + ' of ' + plan, done / plan); };
-
+  const base = baseCfg();
+  const tick = progress(quick ? 2 : 18);
   setProgress('Finding the fastest route to compare against…', 0);
-  const [fastRoute, stage1] = await Promise.all([
+  const [fastRoute, direct] = await Promise.all([
     getRoute([start, dest], { type: 'fastest', toll: S.toll === 'avoid' }).catch((e) => { if (!e.soft) throw e; return null; }),
-    runPool(Ws.flatMap((w) => Hs.map((h) => () => evaluate([start, dest], { type: 'thrilling', w, h, hw: HWs[0], toll: TLs[0] }))), () => tick('Trying curve and hill settings')),
+    evaluate([start, dest], base),
   ]);
-  tick();
-  if (fastRoute) { RUN.fast = analyze(fastRoute); RUN.fast.elev = await getElevation(RUN.fast); }
-  RUN.cands.push(...stage1.filter(Boolean));
-  let best = bestOf(RUN.cands);
-  if (!best) throw new Error('No curvy route found between those places. Try a different finish or turn off some avoids.');
+  tick('Testing routes');
+  if (fastRoute) RUN.fast = analyze(fastRoute);
+  addCands([direct].filter(Boolean));
+  if (quick) return;
 
-  const combos = [];
-  for (const hw of HWs) for (const toll of TLs) if (!(hw === HWs[0] && toll === TLs[0])) combos.push({ ...best.cfg, hw, toll });
-  if (combos.length) {
-    const r = await runPool(combos.map((cfg) => () => evaluate([start, dest], cfg)), () => tick('Trying highway and toll options'));
-    RUN.cands.push(...r.filter(Boolean)); best = bestOf(RUN.cands);
-  }
+  const firstBest = bestOf(RUN.cands);
+  if (firstBest) addCands((await runPool(settingVariants(firstBest).map((cfg) => () => evaluate([start, dest], cfg)), () => tick('Trying curve and hill settings'))).filter(Boolean));
 
-  if (detours) {
+  if (S.maxExtra > 0) {
     const D = havP(start, dest) / 1000, brg = bearing(start, dest);
     const fastMin = RUN.fast ? RUN.fast.summary.travelTimeInSeconds / 60 : D / 0.9;
-    const budgetMin = Math.min(S.maxExtra >= 125 ? Math.max(90, fastMin) : S.maxExtra, 150);
-    const X = (budgetMin / 60) * 50 * 0.55; // km of extra road the budget buys, spent conservatively
-    const off = Math.min(45, Math.sqrt(Math.pow((D + X) / 2, 2) - Math.pow(D / 2, 2)));
-    const tasks = [];
-    for (const frac of [1 / 3, 1 / 2, 2 / 3]) for (const side of [-1, 1]) {
-      const along = destPoint(start, brg, D * frac);
-      const pt = destPoint(along, brg + 90 * side, off * (frac === 1 / 2 ? 1 : 0.8));
-      tasks.push(() => evaluate([start, pt, dest], { ...best.cfg }, { detour: compass(brg + 90 * side) + (frac < 0.4 ? ', early' : frac > 0.6 ? ', late' : '') }));
+    const budgetMin = S.maxExtra >= 125 ? Math.max(60, fastMin) : S.maxExtra;
+    const X = (budgetMin / 60) * 45;
+    const offMax = Math.min(45, Math.sqrt(Math.pow((D + X) / 2, 2) - Math.pow(D / 2, 2)));
+    const zones = [];
+    for (const frac of [1 / 3, 2 / 3]) for (const side of [-1, 1]) for (const wide of [false, true]) {
+      const off = offMax * (wide ? 0.85 : 0.45);
+      zones.push({ frac, dir: (brg + 90 * side + 360) % 360, off, r: clamp(off * 0.4, 1.5, 8), wide });
     }
-    const r = await runPool(tasks, () => tick('Trying detours'));
-    RUN.cands.push(...r.filter(Boolean));
+    const cfg = { ...base, ends: 'fast' };
+    const r = (await runPool(zones.map((z) => () => evaluate(detourLocs(start, dest, z), cfg, { dz: z })), () => tick('Trying detours'))).filter(Boolean);
+    addCands(r);
+    // pull in the best detours that ran over the limit
+    const over = r.filter((c) => { judge(c); return !c.ok; }).sort((a, b) => b.sc.value - a.sc.value).slice(0, 3);
+    const fixed = await runPool(over.map((c) => () => {
+      const k = clamp((budgetMin * 60) / Math.max(60, c.extra), 0.3, 0.85);
+      const z = { ...c.meta.dz, off: c.meta.dz.off * k, r: Math.max(1.2, c.meta.dz.r * k) };
+      return evaluate(detourLocs(start, dest, z), c.cfg, { dz: z });
+    }), () => tick('Fitting detours to your time limit'));
+    addCands(fixed.filter(Boolean));
   }
+  const best = bestOf(RUN.cands);
+  if (best) addCands((await runPool(avoidVariants(best).map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying highway and toll options'))).filter(Boolean));
 }
 
-/* ---------- Loop optimizer ---------- */
-function loopLocs(start, heading, km, dir = 1) {
-  const center = destPoint(start, heading, km);
-  const back = (heading + 180) % 360;
-  return [start, ...[90, 180, 270].map((a) => destPoint(center, (back + dir * a + 360) % 360, km)), start];
+/* ---------- Loop optimizer ----------
+   A loop from town is mostly getting out and back, so each candidate takes the fastest roads out to a
+   "fun zone", drives a twisty loop around it, and takes the fastest roads home. Round 1 tries 8 directions
+   at 3 distances; the best 4 zones are then resized to fit the time, and the winner is nudged left and right. */
+function zoneLocs(start, z) {
+  const Z = destPoint(start, z.h, z.D);
+  const back = bearing(Z, start);
+  return [start, ...[-50, -140, -220, -310].map((a) => destPoint(Z, (back + a + 720) % 360, z.r)), start];
+}
+function zoneRadius(D, T) { // km; guesses loop size from what's left after the drive out and back
+  const transit = (2 * D * 1.3) / 60;
+  return clamp((Math.max(0.2 * T, T - transit) * 42) / (2 * Math.PI * 1.4), 1.5, 15);
 }
 async function optimizeLoop(start, quick) {
   RUN.target = S.loopMin * 60;
-  const Ws = quick ? [S.curves === 'auto' ? 'high' : S.curves] : autoList(S.curves, W_ALL);
-  const Hs = quick ? [S.hills === 'auto' ? 'normal' : S.hills] : autoList(S.hills, H_ALL);
-  const HWs = quick ? [S.hw === 'avoid'] : boolList(S.hw), TLs = quick ? [S.toll === 'avoid'] : boolList(S.toll);
-  const spin = Math.floor(Math.random() * 360);
-  const headings = S.heading === 'auto' ? (quick ? [spin] : [0, 45, 90, 135, 180, 225, 270, 315].map((h) => (h + spin % 45) % 360)) : [+S.heading];
-  const baseCfg = { type: 'thrilling', w: Ws[0], h: Hs[0], hw: HWs[0], toll: TLs[0], loop: true };
-  const plan = 3 + (headings.length - 1) + (Ws.length * Hs.length - 1) + (HWs.length * TLs.length - 1);
-  let done = 0; const tick = (msg) => { done++; setProgress(msg + ' · ' + done + ' of ' + plan, done / plan); };
+  const T = S.loopMin / 60, target = RUN.target;
+  const cfg0 = baseCfg({ loop: true, ends: 'fast' });
+  const spin = Math.floor(Math.random() * 8) * 45;
+  const headings = S.heading === 'auto' ? (quick ? [spin] : [0, 45, 90, 135, 180, 225, 270, 315]) : (quick ? [+S.heading] : [-30, 0, 30].map((x) => (+S.heading + x + 360) % 360));
+  const fracs = quick ? [0.4] : [0.2, 0.4, 0.6];
+  const tick = progress(quick ? 3 : headings.length * fracs.length + 18);
+  const zoneTry = (z, cfg = cfg0) => evaluate(zoneLocs(start, z), cfg, { zone: z });
+  const resize = (c) => {
+    const lt = c.an.legTimes, transit = (lt[0] || 0) + (lt[lt.length - 1] || 0);
+    const loopT = Math.max(60, c.an.summary.travelTimeInSeconds - transit), avail = target - transit;
+    const z = { ...c.meta.zone };
+    if (avail < 0.3 * target) z.D *= 0.72; // too far out to leave time for the fun part
+    else z.r = clamp(z.r * clamp(avail / loopT, 0.35, 2.2), 1.2, 15);
+    return zoneTry(z, c.cfg);
+  };
+  const fits = (c, tol) => Math.abs(c.an.summary.travelTimeInSeconds / target - 1) <= tol;
 
-  // calibrate the loop size so drive time lands near the target
-  let km = (S.loopMin / 60) * 58 / 1.4 / (2 * Math.PI), first = null;
-  setProgress('Sizing the loop…', 0);
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const c = await evaluate(loopLocs(start, headings[0], km), baseCfg, { heading: headings[0] });
-    tick('Sizing the loop');
-    if (!c) { km *= 0.8; continue; }
-    if (!first || Math.abs(c.an.summary.travelTimeInSeconds - RUN.target) < Math.abs(first.an.summary.travelTimeInSeconds - RUN.target)) first = c;
-    const ratio = c.an.summary.travelTimeInSeconds / RUN.target;
-    if (ratio > 0.85 && ratio < 1.18) break;
-    km *= clamp(1 / ratio, 0.45, 2.2);
+  setProgress('Scouting fun zones…', 0);
+  const zones = [];
+  for (const f of fracs) { const D = Math.max(1.5, (f * T * 55) / 2); for (const h of headings) zones.push({ h, D, r: zoneRadius(D, T) }); }
+  const r1 = (await runPool(zones.map((z) => () => zoneTry(z)), () => tick('Scouting fun zones'))).filter(Boolean);
+  addCands(r1);
+  if (!r1.length) throw new Error('Could not build a loop from here. Try a different start or a longer loop.');
+
+  // resize the best zones until they fit the time (up to 3 tries each)
+  for (const c of r1) judge(c);
+  let lines = r1.sort((a, b) => b.sc.value - a.sc.value).slice(0, quick ? 1 : 4).map((c) => [c]);
+  for (let pass = 0; pass < 3; pass++) {
+    const todo = lines.filter((l) => !l.some((c) => fits(c, 0.15)));
+    if (!todo.length) break;
+    const res = await runPool(todo.map((l) => () => resize(l.reduce((a, b) => (Math.abs(b.an.summary.travelTimeInSeconds - target) < Math.abs(a.an.summary.travelTimeInSeconds - target) ? b : a)))), () => tick('Fitting loops to ' + S.loopMin + ' min'));
+    res.forEach((c, i) => { if (c) { todo[i].push(c); addCands([c]); } });
+    if (quick) break;
   }
-  if (!first) throw new Error('Could not build a loop from here. Try a longer loop or a different start.');
-  RUN.cands.push(first);
-  if (headings.length > 1) {
-    const r = await runPool(headings.slice(1).map((h) => () => evaluate(loopLocs(start, h, km), baseCfg, { heading: h })), () => tick('Trying directions'));
-    RUN.cands.push(...r.filter(Boolean));
-  }
+  if (quick) return;
+
+  // nudge the winning zone left and right
   let best = bestOf(RUN.cands);
-  const grid = [];
-  for (const w of Ws) for (const h of Hs) if (!(w === best.cfg.w && h === best.cfg.h)) grid.push({ ...best.cfg, w, h });
-  if (grid.length) {
-    const r = await runPool(grid.map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying curve and hill settings'));
-    RUN.cands.push(...r.filter(Boolean)); best = bestOf(RUN.cands);
+  if (best && best.meta.zone && best.ok) {
+    const z = best.meta.zone;
+    const nudged = (await runPool([-25, 25].map((dh) => () => zoneTry({ ...z, h: (z.h + dh + 360) % 360 }, best.cfg)), () => tick('Nudging the best loop'))).filter(Boolean);
+    addCands(nudged);
+    const refit = await runPool(nudged.filter((c) => !fits(c, 0.15)).map((c) => () => resize(c)), () => tick('Nudging the best loop'));
+    addCands(refit.filter(Boolean));
   }
-  const combos = [];
-  for (const hw of HWs) for (const toll of TLs) if (!(hw === best.cfg.hw && toll === best.cfg.toll)) combos.push({ ...best.cfg, hw, toll });
-  if (combos.length) {
-    const r = await runPool(combos.map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying highway and toll options'));
-    RUN.cands.push(...r.filter(Boolean));
-  }
+  best = bestOf(RUN.cands);
+  if (best) addCands((await runPool(settingVariants(best).map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying curve and hill settings'))).filter(Boolean));
+  best = bestOf(RUN.cands);
+  if (best) addCands((await runPool(avoidVariants(best).map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying highway and toll options'))).filter(Boolean));
 }
 
 /* ---------- rebuild with keep / skip ---------- */
@@ -1099,6 +1214,10 @@ async function go(quick) {
     Object.assign(RUN, { mode: S.mode, cands: [], fast: null, start, dest, selected: null, userPicked: false, tested: 0, failed: 0, quick });
     if (S.mode === 'ab') await optimizeAB(start, dest, quick); else await optimizeLoop(start, quick);
     if (my !== runId) return;
+    setProgress('Measuring hills on the best routes…', 0.98);
+    await ensureElevation(ranked().filter((c) => c.ok).slice(0, 6));
+    if (RUN.fast && !RUN.fast.elev) RUN.fast.elev = await getElevation(RUN.fast);
+    if (my !== runId) return;
     const top = ranked()[0];
     if (!top) throw new Error('No route found. Try different places or fewer avoids.');
     select(top.id, false);
@@ -1117,6 +1236,7 @@ function select(id, byUser) {
   const c = RUN.cands.find((x) => x.id === id); if (!c) return;
   RUN.selected = id; if (byUser) RUN.userPicked = true;
   renderList(); renderDetail(c); draw(c, true);
+  if (!c.elevTried) ensureElevation([c]).then(() => { if (RUN.selected === c.id) refreshSelected(false); else renderList(); });
 }
 function refreshSelected(fit) {
   const c = RUN.cands.find((x) => x.id === RUN.selected); if (!c) return;
@@ -1142,15 +1262,16 @@ function renderList() {
       : (c.extra >= 0 ? '+' : '−') + fmtDur(c.extra) + ' vs target';
     return `<li><button type="button" class="cand${c.ok ? '' : ' over'}" data-id="${c.id}" aria-pressed="${c.id === RUN.selected}">
       <span class="sc">${c.sc.value}</span>
-      <span class="nm"><b>${i === 0 && c.ok ? '★ ' : ''}${esc(c.label)}</b><small>${Math.round(c.an.curveShare * 100)}% corners · ${fmtMi(c.an.total)} mi${c.ok ? '' : ' · over your limit'}</small></span>
+      <span class="nm"><b>${i === 0 && c.ok ? '★ ' : ''}${esc(c.label)}</b><small>${fmtMi(c.an.funLen)} mi twisty · ${fmtMi(c.an.total)} mi${c.an.elev ? '' : c.elevTried ? '' : ' · hills not measured'}${c.ok ? '' : ' · ' + (RUN.mode === 'ab' ? 'over your limit' : 'off your target time')}</small></span>
       <span class="tm">${fmtDur(t)}<small>${extra}</small></span></button></li>`;
   }).join('');
 }
 $('#cands').addEventListener('click', (e) => { const b = e.target.closest('.cand'); if (b) select(+b.dataset.id, true); });
 
-function bar(f, frac, value, note) {
+function bar(f, frac, value, note, cut) {
   const w = S.weights[f.k];
-  return `<div class="bar${w ? '' : ' off'}"><div class="top-line"><span>${f.name}<em>${w ? '×' + w : 'off'}</em></span><span>${value}</span></div>
+  const tag = !w ? 'off' : f.kind === 'pen' ? (cut >= 0.005 ? '−' + Math.round(cut * 100) + '% of score' : 'no penalty') : '×' + w;
+  return `<div class="bar${w ? '' : ' off'}"><div class="top-line"><span>${f.name}<em>${tag}</em></span><span>${value}</span></div>
     <div class="track"><i style="width:${Math.round(clamp(frac ?? 0) * 100)}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
 }
 function profileSvg(elev) {
@@ -1202,7 +1323,8 @@ function renderDetail(c) {
       <tr><td>Distance</td><td>${fmtMi(an.total)} mi</td><td>${fmtMi(fast.total)} mi</td></tr>
       <tr><td>Drive time</td><td>${fmtDur(sum.travelTimeInSeconds)}</td><td>${fmtDur(fast.summary.travelTimeInSeconds)}</td></tr>
       <tr><td>Traffic delay</td><td>${fmtDur(an.delay)}</td><td>${fmtDur(fast.delay)}</td></tr>
-      <tr><td>In corners</td><td>${Math.round(an.curveShare * 100)}%</td><td>${Math.round(fast.curveShare * 100)}%</td></tr>
+      <tr><td>Curves per mile</td><td>${fmtInt(an.cpm)}</td><td>${fmtInt(fast.cpm)}</td></tr>
+      <tr><td>Twisty roads</td><td>${fmtMi(an.funLen)} mi</td><td>${fmtMi(fast.funLen)} mi</td></tr>
       <tr><td>Highway</td><td>${Math.round(an.motorShare * 100)}%</td><td>${Math.round(fast.motorShare * 100)}%</td></tr>
       <tr><td>Fun score</td><td>${sc.value}</td><td>${fsc.value}</td></tr>
       </tbody></table></div></section>` : '';
@@ -1213,7 +1335,7 @@ function renderDetail(c) {
     <div class="verdict">
       <div class="sign" aria-label="Fun score ${sc.value} out of 100"><div class="d"></div><div class="n">${sc.value}</div></div>
       <div><span class="label">Fun score · your formula</span><h2>${scoreLabel(sc.value)}</h2>
-        <p>${esc(c.label)}${an.bestRoad ? ' · best road: ' + esc(an.bestRoad.label) : ''}</p></div>
+        <p>${esc(c.label)}</p><p>${an.funLen >= 800 ? '<b>' + fmtMi(an.funLen) + ' mi of twisty roads</b> (' + Math.round((an.funLen / an.total) * 100) + '% of the drive)' : 'No stretch counts as a twisty road'}${an.bestRoad ? ' · best: ' + esc(an.bestRoad.label) : ''}</p></div>
     </div>
     ${c.ok ? '' : `<div class="msg err">This route is over your ${RUN.mode === 'ab' ? 'extra-time limit' : 'loop length target'}. It's shown because you picked it.</div>`}
     <div class="stats">
@@ -1239,11 +1361,11 @@ function renderDetail(c) {
   <section class="card">
     <div class="section-h"><h3>Why it scored ${sc.value}</h3><span class="label">${fmtMi(an.total)} mi analyzed</span></div>
     <div class="bars">
-      ${bar(f.curves, sc.parts.curves, Math.round(an.curveShare * 100) + '% in corners', fmtMi(an.curveLen) + ' mi of corners, ' + fmtMi(an.tightLen) + ' mi tight (under 60 m radius)')}
+      ${bar(f.curves, sc.parts.curves, fmtInt(an.cpm) + ' per mi', fmtMi(an.curveLen) + ' mi of corners (' + fmtMi(an.tightLen) + ' mi tight), ' + fmtMi(an.sweepLen) + ' mi of sweepers. Twisty back roads run 350+ per mile, city driving under 60.')}
+      ${bar(f.hills, sc.parts.hills, an.elev ? fmtInt((an.elev.up * FT) / miles) + ' ft/mi' : c.elevTried ? 'no data' : 'measuring…', an.elev ? fmtInt(an.elev.up * FT) + ' ft up, ' + fmtInt(an.elev.down * FT) + ' ft down, steepest about ' + Math.round(an.elev.maxGrade * 100) + '%' : c.elevTried ? 'Elevation data didn’t load, so hills are left out of this score.' : 'Hills are left out until the elevation arrives.')}
       ${bar(f.open, sc.parts.open, Math.round(an.motorShare * 100) + '% highway · ' + Math.round(an.urbanShare * 100) + '% town', '')}
-      ${bar(f.hills, sc.parts.hills, an.elev ? fmtInt((an.elev.up * FT) / miles) + ' ft/mi' : 'no data', an.elev ? fmtInt(an.elev.up * FT) + ' ft up, ' + fmtInt(an.elev.down * FT) + ' ft down, steepest about ' + Math.round(an.elev.maxGrade * 100) + '%' : 'Elevation data didn’t load, so hills are left out of the score.')}
-      ${bar(f.traffic, sc.parts.traffic, an.delay >= 60 ? '+' + fmtDur(an.delay) : 'no delay', typical ? 'Usually ' + fmtDur(typical) + ' at this hour · ' + fmtDur(freeflow || typical) + ' with empty roads' : '')}
-      ${bar(f.flow, sc.parts.flow, an.turnsPer10mi.toFixed(1) + ' turns per 10 mi', an.turns + (an.turns === 1 ? ' turn or junction' : ' turns and junctions') + ' in total')}
+      ${bar(f.traffic, sc.parts.traffic, an.delay >= 60 ? '+' + fmtDur(an.delay) : 'no delay', typical ? 'Usually ' + fmtDur(typical) + ' at this hour · ' + fmtDur(freeflow || typical) + ' with empty roads' : '', sc.pen.traffic)}
+      ${bar(f.flow, sc.parts.flow, an.turnsPer10mi.toFixed(1) + ' turns per 10 mi', an.turns + (an.turns === 1 ? ' turn or junction' : ' turns and junctions') + ' in total', sc.pen.flow)}
     </div>
     ${profileSvg(an.elev)}
   </section>
