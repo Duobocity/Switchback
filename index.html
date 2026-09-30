@@ -14,13 +14,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;800&family=Overpass+Mono:wght@400;600&family=Source+Sans+3:wght@400;600&display=swap">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'">
 <style>
-/* Layout: one mobile-first column — planner, map, then the verdict and the numbers behind it. Road-sign yellow is the only accent. */
+/* Layout: one mobile-first column — plan, fun formula, map, ranked candidates, then the chosen route. Road-sign yellow is the only accent. */
 :root {
   --bg: #EEF0EE; --surface: #FFFFFF; --sunk: #E3E7E4; --ink: #1B1F1E; --muted: #58625F; --line: #D2D8D4;
   --accent: #F2C200; --accent-ink: #7A5A00; --on-accent: #16140A;
-  --route: #2F5E82; --casing: #FFFFFF; --fast: #7D8784;
+  --route: #2F5E82; --casing: #FFFFFF; --fast: #7D8784; --alt: #8C9A95;
   --c1: #E7B800; --c2: #EE8A00; --c3: #DB4F1E; --c4: #B51D3B;
   --good: #23784C; --warn: #A86F00; --bad: #BF3526;
   --font-display: "Overpass", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
@@ -33,7 +33,7 @@
   :root:not([data-theme="light"]) {
     --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
     --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
-    --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490;
+    --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490; --alt: #56615C;
     --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
     --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
     color-scheme: dark;
@@ -42,12 +42,13 @@
 :root[data-theme="dark"] {
   --bg: #121514; --surface: #1B1F1E; --sunk: #242927; --ink: #ECEFEA; --muted: #9BA49F; --line: #2E3532;
   --accent: #F5C518; --accent-ink: #F5C518; --on-accent: #16140A;
-  --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490;
+  --route: #8DB8DA; --casing: #0B0D0C; --fast: #8A9490; --alt: #56615C;
   --c1: #F5C518; --c2: #FF9F1C; --c3: #FF6A3D; --c4: #FF3D6E;
   --good: #4CC38A; --warn: #F0B340; --bad: #FF6B5A;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
@@ -58,9 +59,9 @@ body {
 h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* header */
 .top { display: flex; align-items: center; gap: 10px; }
 .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
 .brand svg { width: 34px; height: 34px; flex: none; }
@@ -69,35 +70,36 @@ button { cursor: pointer; }
 .icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; width: 40px; height: 40px; display: grid; place-items: center; }
 .icon-btn svg { width: 20px; height: 20px; }
 
-/* cards */
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 14px; min-width: 0; }
 .label { font: 600 .72rem/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .field { display: grid; gap: 6px; position: relative; min-width: 0; }
 .row { display: flex; gap: 8px; align-items: center; min-width: 0; }
 .row > .grow { flex: 1; min-width: 0; }
-input[type="text"], input[type="password"], input[type="datetime-local"] {
+input[type="text"], input[type="datetime-local"] {
   width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 11px 12px; font-size: 16px; min-width: 0;
 }
 input::placeholder { color: var(--muted); }
 .ghost { border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 10px 12px; white-space: nowrap; font-weight: 600; }
 .ghost svg { width: 18px; height: 18px; vertical-align: -4px; }
 
-.seg { display: flex; background: var(--sunk); border-radius: 9px; padding: 3px; gap: 3px; }
-.seg button { flex: 1; border: 0; background: transparent; border-radius: 7px; padding: 9px 6px; font: 600 .92rem/1.1 var(--font-display); color: var(--muted); min-width: 0; }
+.seg { display: flex; background: var(--sunk); border-radius: 9px; padding: 3px; gap: 3px; min-width: 0; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 7px; padding: 9px 4px; font: 600 .9rem/1.1 var(--font-display); color: var(--muted); min-width: 0; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .18); }
-.seg.mode button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.seg-hint { font-size: .85rem; color: var(--muted); }
+.seg button[data-v="auto"][aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.seg.mode button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 7px 12px; font: 600 .88rem/1 var(--font-display); color: var(--muted); }
 .chip[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); background: var(--sunk); }
-.chip[aria-pressed="true"]::before { content: "✓ "; }
+.chip[data-avoid][aria-pressed="true"]::before { content: "✓ "; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
-input[type="range"] { width: 100%; accent-color: var(--accent); }
-.range-val { font: 600 1rem var(--font-data); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.range-val { font: 600 .95rem var(--font-data); }
+.hint { font-size: .85rem; color: var(--muted); margin: 0; }
 
-.go { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 15px; font: 800 1.1rem/1 var(--font-display); letter-spacing: .02em; width: 100%; }
-.go:disabled { opacity: .6; cursor: progress; }
+.btns { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.go { border: 0; background: var(--accent); color: var(--on-accent); border-radius: 10px; padding: 15px 10px; font: 800 1.08rem/1 var(--font-display); letter-spacing: .02em; }
+.go.alt { background: transparent; color: var(--ink); border: 1px solid var(--line); }
 
 .suggest { position: absolute; left: 0; right: 0; top: 100%; z-index: 1000; margin: 4px 0 0; padding: 4px; list-style: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / .18); max-height: 280px; overflow-y: auto; }
 .suggest li button { width: 100%; text-align: left; border: 0; background: transparent; padding: 9px 10px; border-radius: 6px; display: grid; gap: 1px; }
@@ -107,6 +109,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .msg { border-radius: 8px; padding: 10px 12px; font-size: .95rem; background: var(--sunk); }
 .msg.err { border-left: 4px solid var(--bad); }
 .msg.info { border-left: 4px solid var(--accent); }
+
+/* fun formula */
+.weights { display: grid; gap: 12px; }
+.w-row { display: grid; grid-template-columns: 7.5rem 1fr 2.6rem; gap: 10px; align-items: center; }
+.w-row label { font-weight: 600; line-height: 1.15; }
+.w-row label small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; }
+.w-row output { font: 600 .95rem var(--font-data); text-align: right; }
+.w-row output.off { color: var(--muted); }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* map */
 .map-wrap { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); }
@@ -119,22 +130,37 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .leaflet-container { font-family: var(--font-body); }
 .wp-dot { background: var(--ink); color: var(--bg); border: 2px solid var(--bg); border-radius: 999px; font: 700 11px/16px var(--font-data); text-align: center; width: 20px !important; height: 20px !important; }
 .end-pin { background: var(--accent); border: 3px solid var(--ink); border-radius: 4px; transform: rotate(45deg); }
-.loading { position: absolute; inset: 0; z-index: 600; display: grid; place-items: center; background: rgb(0 0 0 / .25); font: 800 1rem var(--font-display); color: #fff; letter-spacing: .04em; }
+.loading { position: absolute; inset: 0; z-index: 600; display: grid; place-items: center; align-content: center; gap: 10px; background: rgb(0 0 0 / .45); font: 800 1rem var(--font-display); color: #fff; letter-spacing: .03em; text-align: center; padding: 16px; }
+.loading .pbar { width: min(260px, 70vw); height: 6px; border-radius: 9px; background: rgb(255 255 255 / .25); overflow: hidden; }
+.loading .pbar i { display: block; height: 100%; width: 0; background: #F5C518; transition: width .25s; }
+
+/* candidates */
+.cands { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cand { width: 100%; text-align: left; border: 1px solid var(--line); background: transparent; border-radius: 9px; padding: 9px 10px; display: grid; grid-template-columns: 2.6rem 1fr auto; gap: 10px; align-items: center; }
+.cand[aria-pressed="true"] { border-color: var(--ink); background: var(--sunk); }
+.cand.over { opacity: .55; }
+.cand .sc { font: 800 1.15rem/1 var(--font-display); text-align: center; background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 7px 0; }
+.cand.over .sc { background: var(--sunk); color: var(--muted); }
+.cand .nm { min-width: 0; }
+.cand .nm b { display: block; font-family: var(--font-display); overflow-wrap: anywhere; }
+.cand .nm small { color: var(--muted); }
+.cand .tm { font: 600 .9rem var(--font-data); text-align: right; white-space: nowrap; }
+.cand .tm small { display: block; font-weight: 400; color: var(--muted); }
 
 /* verdict */
 .verdict { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
 .sign { width: 104px; height: 104px; position: relative; flex: none; }
 .sign .d { position: absolute; inset: 15px; background: var(--accent); border: 3px solid var(--on-accent); border-radius: 8px; transform: rotate(45deg); }
 .sign .n { position: absolute; inset: 0; display: grid; place-items: center; font: 800 2.1rem/1 var(--font-display); color: var(--on-accent); }
-.verdict h2 { font-size: 1.45rem; font-weight: 800; }
+.verdict h2 { font-size: 1.4rem; font-weight: 800; }
 .verdict p { margin: 4px 0 0; color: var(--muted); }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 @media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
 .stat { background: var(--surface); padding: 10px 12px; display: grid; gap: 3px; min-width: 0; }
-.stat b { font: 600 1.25rem/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
+.stat b { font: 600 1.2rem/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
 .stat span.sub { font-size: .82rem; color: var(--muted); }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 .75rem/1.4 var(--font-display); letter-spacing: .04em; text-transform: uppercase; border: 1.5px solid currentColor; }
-.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font: 700 .72rem/1.4 var(--font-display); letter-spacing: .04em; text-transform: uppercase; border: 1.5px solid currentColor; white-space: nowrap; }
+.pill.good { color: var(--good); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); } .pill.mute { color: var(--muted); }
 .drive { display: grid; gap: 8px; }
 .drive a { text-decoration: none; text-align: center; border-radius: 10px; padding: 14px; font: 800 1.02rem/1 var(--font-display); }
 .drive a.primary { background: var(--ink); color: var(--bg); }
@@ -145,19 +171,27 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .bar { display: grid; gap: 5px; }
 .bar .top-line { display: flex; justify-content: space-between; gap: 8px; }
 .bar .top-line span:first-child { font-weight: 600; }
+.bar .top-line span:first-child em { font-style: normal; font: 400 .8rem var(--font-data); color: var(--muted); margin-left: 4px; }
 .bar .top-line span:last-child { font: 400 .9rem var(--font-data); color: var(--muted); text-align: right; }
+.bar.off { opacity: .5; }
 .track { height: 8px; background: var(--sunk); border-radius: 99px; overflow: hidden; }
 .track i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
 .bar small { color: var(--muted); font-size: .84rem; }
 
-.stretches { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.stretches li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 8px; background: var(--sunk); }
-.stretches .rk { font: 800 .9rem var(--font-display); width: 26px; height: 26px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); border-radius: 5px; transform: rotate(45deg); }
-.stretches .rk span { transform: rotate(-45deg); }
-.stretches .nm { min-width: 0; }
-.stretches .nm b { display: block; overflow-wrap: anywhere; }
-.stretches .nm small { color: var(--muted); }
-.stretches .cv { font: 600 .95rem var(--font-data); text-align: right; }
+/* roads */
+.roads { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.road { display: grid; grid-template-columns: 1fr auto; gap: 8px 10px; align-items: center; padding: 9px 10px; border-radius: 8px; background: var(--sunk); border: 1.5px solid transparent; }
+.road.keep { border-color: var(--good); }
+.road.skip { border-color: var(--bad); }
+.road.skip .rn b { text-decoration: line-through; color: var(--muted); }
+.road .rn { min-width: 0; border: 0; background: transparent; text-align: left; padding: 0; }
+.road .rn b { display: block; overflow-wrap: anywhere; font-family: var(--font-display); }
+.road .rn small { color: var(--muted); }
+.road .seg { width: 12.5rem; }
+.road .seg button { padding: 6px 2px; font-size: .8rem; }
+.road .seg button[data-v="keep"][aria-pressed="true"] { background: var(--good); color: var(--surface); }
+.road .seg button[data-v="skip"][aria-pressed="true"] { background: var(--bad); color: var(--surface); }
+@media (max-width: 480px) { .road { grid-template-columns: 1fr; } .road .seg { width: 100%; } }
 
 .tbl-wrap { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
@@ -175,7 +209,7 @@ td:first-child { font-family: var(--font-body); font-size: 1rem; }
 details summary { cursor: pointer; font: 600 1rem var(--font-display); }
 details p, details li { color: var(--muted); font-size: .93rem; }
 details ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 6px; }
-.section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .section-h h3 { font-size: 1.05rem; font-weight: 800; }
 
 dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); width: min(440px, calc(100% - 32px)); padding: 18px; }
@@ -223,16 +257,21 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
       <ul class="suggest" id="endList" hidden></ul>
     </div>
 
+    <div class="field" id="extraField">
+      <div class="section-h"><label class="label" for="maxExtra">Extra time allowed for fun</label><span class="range-val" id="maxExtraVal">+30 min</span></div>
+      <input type="range" id="maxExtra" min="0" max="125" step="5" value="30">
+      <p class="hint">How much longer than the fastest route you're willing to drive. Routes over this are shown but not picked.</p>
+    </div>
+
     <div id="loopFields" class="two" hidden>
       <div class="field">
-        <label class="label" for="loopMin">Loop length</label>
+        <div class="section-h"><label class="label" for="loopMin">Loop length</label><span class="range-val" id="loopMinVal">about 60 min</span></div>
         <input type="range" id="loopMin" min="20" max="180" step="10" value="60">
-        <span class="range-val" id="loopMinVal">about 60 min</span>
       </div>
       <div class="field">
         <span class="label">Head out toward</span>
         <div class="seg" role="group" aria-label="Loop direction" data-key="heading">
-          <button type="button" data-v="any" aria-pressed="true">Any</button>
+          <button type="button" data-v="auto" aria-pressed="true">Auto</button>
           <button type="button" data-v="0" aria-pressed="false">N</button>
           <button type="button" data-v="90" aria-pressed="false">E</button>
           <button type="button" data-v="180" aria-pressed="false">S</button>
@@ -245,43 +284,80 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
       <div class="field">
         <span class="label">Curves</span>
         <div class="seg" role="group" aria-label="Curves" data-key="curves">
+          <button type="button" data-v="auto" aria-pressed="true">Auto</button>
           <button type="button" data-v="low" aria-pressed="false">Gentle</button>
           <button type="button" data-v="normal" aria-pressed="false">Twisty</button>
-          <button type="button" data-v="high" aria-pressed="true">Very twisty</button>
+          <button type="button" data-v="high" aria-pressed="false">Very</button>
         </div>
       </div>
       <div class="field">
         <span class="label">Hills</span>
         <div class="seg" role="group" aria-label="Hills" data-key="hills">
+          <button type="button" data-v="auto" aria-pressed="true">Auto</button>
           <button type="button" data-v="low" aria-pressed="false">Flat</button>
-          <button type="button" data-v="normal" aria-pressed="true">Rolling</button>
+          <button type="button" data-v="normal" aria-pressed="false">Rolling</button>
           <button type="button" data-v="high" aria-pressed="false">Hilly</button>
         </div>
       </div>
+      <div class="field">
+        <span class="label">Highways</span>
+        <div class="seg" role="group" aria-label="Highways" data-key="hw">
+          <button type="button" data-v="auto" aria-pressed="false">Auto</button>
+          <button type="button" data-v="allow" aria-pressed="true">Allow</button>
+          <button type="button" data-v="avoid" aria-pressed="false">Avoid</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Tolls</span>
+        <div class="seg" role="group" aria-label="Tolls" data-key="toll">
+          <button type="button" data-v="auto" aria-pressed="false">Auto</button>
+          <button type="button" data-v="allow" aria-pressed="true">Allow</button>
+          <button type="button" data-v="avoid" aria-pressed="false">Avoid</button>
+        </div>
+      </div>
     </div>
+    <p class="hint"><b>Auto</b> lets “Maximize fun” try every option and keep whichever scores best.</p>
 
-    <div class="field">
-      <span class="label">Avoid</span>
-      <div class="chips">
-        <button class="chip" type="button" data-avoid="unpavedRoads" aria-pressed="true">Unpaved</button>
-        <button class="chip" type="button" data-avoid="motorways" aria-pressed="false">Highways</button>
-        <button class="chip" type="button" data-avoid="tollRoads" aria-pressed="false">Tolls</button>
-        <button class="chip" type="button" data-avoid="ferries" aria-pressed="false">Ferries</button>
+    <div class="two">
+      <div class="field">
+        <span class="label">Always avoid</span>
+        <div class="chips">
+          <button class="chip" type="button" data-avoid="unpavedRoads" aria-pressed="true">Unpaved</button>
+          <button class="chip" type="button" data-avoid="ferries" aria-pressed="false">Ferries</button>
+        </div>
+      </div>
+      <div class="field">
+        <div class="section-h"><label class="label" for="stops">Google Maps stops</label><span class="range-val" id="stopsVal">6</span></div>
+        <input type="range" id="stops" min="2" max="9" step="1" value="6">
+        <p class="hint">Fewer stops, fewer interruptions. More stops, closer to this route.</p>
       </div>
     </div>
 
     <div class="field">
       <span class="label">Leaving</span>
-      <div class="row">
-        <div class="seg grow" role="group" aria-label="Departure" data-key="leave">
-          <button type="button" data-v="now" aria-pressed="true">Now</button>
-          <button type="button" data-v="later" aria-pressed="false">Later</button>
-        </div>
+      <div class="seg" role="group" aria-label="Departure" data-key="leave">
+        <button type="button" data-v="now" aria-pressed="true">Now</button>
+        <button type="button" data-v="later" aria-pressed="false">Later</button>
       </div>
       <input type="datetime-local" id="departAt" hidden aria-label="Departure time">
     </div>
+  </section>
 
-    <button class="go" type="button" id="goBtn">Find a fun route</button>
+  <section class="card" aria-labelledby="formulaH">
+    <div class="section-h"><h3 id="formulaH">Your fun formula</h3><span class="label">0 = ignore</span></div>
+    <div class="weights" id="weights"></div>
+    <div class="presets" id="presets">
+      <button class="chip" type="button" data-preset="balanced">Balanced</button>
+      <button class="chip" type="button" data-preset="curves">All about curves</button>
+      <button class="chip" type="button" data-preset="hills">Hills and views</button>
+      <button class="chip" type="button" data-preset="calm">No traffic, no stops</button>
+    </div>
+    <p class="hint">Moving a slider re-ranks the routes you already have. No new searches needed.</p>
+    <div class="btns">
+      <button class="go" type="button" id="optBtn">Maximize fun</button>
+      <button class="go alt" type="button" id="quickBtn">Quick route</button>
+    </div>
+    <p class="hint" id="budgetHint">Maximize tests up to about 20 routes (about 1% of your free daily TomTom requests).</p>
     <div class="msg err" id="err" role="alert" hidden></div>
   </section>
 
@@ -298,23 +374,29 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
       <span class="sw"><i style="background:var(--c3)"></i> &lt;60 m</span>
       <span class="sw"><i style="background:var(--c4)"></i> &lt;30 m</span>
     </div>
-    <div class="loading" id="loading" hidden>Finding curves…</div>
+    <div class="loading" id="loading" hidden><span id="loadingText">Finding curves…</span><span class="pbar"><i id="loadingBar"></i></span></div>
   </div>
+
+  <section class="card" id="candCard" hidden>
+    <div class="section-h"><h3>Routes tested</h3><span class="label" id="candMeta"></span></div>
+    <ul class="cands" id="cands"></ul>
+  </section>
 
   <div id="results" hidden></div>
 
-  <section class="card" id="howCard">
+  <section class="card">
     <details>
-      <summary>How the fun score works</summary>
-      <p>Each route is resampled every 20 m and the radius of every bend is measured, the same method the Curvature project (roadcurvature.com) uses to rank roads. Corners near turns and intersections don't count, so a city grid doesn't look twisty.</p>
+      <summary>How the score and the optimizer work</summary>
+      <p>Each route is resampled every 20 m and the radius of every bend is measured, the method the Curvature project (roadcurvature.com) uses to rank roads. Corners near turns and intersections don't count, so a city grid doesn't look twisty.</p>
       <ul>
-        <li><b>Curves, 40%.</b> Share of the drive spent in corners tighter than 175 m radius. Tighter corners are weighted up to 2×. Full marks at 35%.</li>
-        <li><b>Open road, 20%.</b> Share of the drive off interstates and out of town.</li>
-        <li><b>Hills, 15%.</b> Feet climbed per mile from elevation data. Full marks at 80 ft/mi.</li>
-        <li><b>Traffic, 15%.</b> Live delay as a share of drive time. Zero points at 25% delay.</li>
-        <li><b>Flow, 10%.</b> Fewer turns and junctions per 10 miles means fewer stops.</li>
+        <li><b>Curves.</b> Share of the drive in corners tighter than 175 m radius. Full marks at 35%.</li>
+        <li><b>Open road.</b> Share of the drive off interstates and out of town.</li>
+        <li><b>Hills.</b> Feet climbed per mile. Full marks at 80 ft/mi.</li>
+        <li><b>Traffic.</b> Live delay as a share of drive time. Zero at 25% delay.</li>
+        <li><b>Flow.</b> Turns and junctions per 10 miles. Fewer means fewer stops.</li>
       </ul>
-      <p>“Best stretches” are runs of corners broken up by straights longer than 1.5 miles, scored on Curvature's scale: 300+ has a few good corners, 1,000+ is a fun road, 3,000+ is worth a trip.</p>
+      <p>The fun score is the average of those five, weighted by your sliders. <b>Maximize fun</b> tries every Auto setting, then tries detours off to each side (A to B) or loops heading out in eight directions (Loop), and keeps the best route inside your time limit.</p>
+      <p>Road ratings use Curvature's scale: 300+ has a few good corners, 1,000+ is a fun road, 3,000+ is worth a trip.</p>
     </details>
   </section>
 </div>
@@ -324,10 +406,12 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
     <h2>Settings</h2>
     <div class="field">
       <label class="label" for="keyInput">TomTom API key</label>
-      <input type="password" id="keyInput" autocomplete="off" spellcheck="false" placeholder="Paste your key">
+      <input type="text" id="keyInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Paste your key" style="font-family:var(--font-data)">
     </div>
-    <p>Stored only in this browser on this device. The free tier covers 2,500 route and search requests a day, far more than a day of planning uses.</p>
+    <p>Stored only in this browser on this device. The free tier covers 2,500 route and search requests a day.</p>
+    <p id="keyTest" hidden></p>
     <div class="btn-row">
+      <button class="ghost" type="button" id="testKey">Test key</button>
       <button class="ghost" type="button" id="clearKey">Remove key</button>
       <button class="ghost" value="cancel" type="submit">Cancel</button>
       <button class="solid" id="saveKey" value="save" type="submit">Save</button>
@@ -335,7 +419,8 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
   </form>
 </dialog>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>if (!window.L) document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>');</script>
 <script>
 (() => {
 'use strict';
@@ -345,74 +430,105 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
-const KEY_NAME = 'switchback.tomtomKey';
+const KEY_NAME = 'switchback.tomtomKey', PREFS = 'switchback.prefs.v2';
 let KEY = store.get(KEY_NAME) || '';
 
+const FACTORS = [
+  { k: 'curves', name: 'Curves', sub: 'time spent cornering' },
+  { k: 'open', name: 'Open road', sub: 'off highways, out of town' },
+  { k: 'hills', name: 'Hills', sub: 'elevation change' },
+  { k: 'traffic', name: 'Traffic', sub: 'less delay' },
+  { k: 'flow', name: 'Flow', sub: 'fewer turns and stops' },
+];
+const PRESETS = {
+  balanced: { curves: 8, open: 4, hills: 3, traffic: 3, flow: 2 },
+  curves: { curves: 10, open: 3, hills: 1, traffic: 1, flow: 1 },
+  hills: { curves: 5, open: 4, hills: 10, traffic: 2, flow: 1 },
+  calm: { curves: 5, open: 6, hills: 2, traffic: 8, flow: 7 },
+};
 const S = {
-  mode: 'ab', curves: 'high', hills: 'normal', heading: 'any', leave: 'now',
-  avoid: { unpavedRoads: true, motorways: false, tollRoads: false, ferries: false },
-  start: null, end: null, loopMin: 60, loopSpin: Math.floor(Math.random() * 360), loopDir: 1,
+  mode: 'ab', curves: 'auto', hills: 'auto', hw: 'allow', toll: 'allow', heading: 'auto', leave: 'now',
+  avoid: { unpavedRoads: true, ferries: false },
+  weights: { ...PRESETS.balanced }, maxExtra: 30, stops: 6, loopMin: 60,
+  start: null, end: null,
 };
 const MI = 1609.344, FT = 3.28084;
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const tok = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const fmtMi = (m) => { const v = m / MI; return v < 10 ? v.toFixed(1) : Math.round(v).toString(); };
-const fmtDur = (sec) => { const m = Math.round(sec / 60); if (m < 60) return m + ' min'; return Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+const fmtDur = (sec) => { const m = Math.round(Math.abs(sec) / 60); if (m < 60) return m + ' min'; return Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
 const fmtInt = (n) => Math.round(n).toLocaleString('en-US');
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 const isDark = () => { const t = document.documentElement.dataset.theme; if (t) return t === 'dark'; return matchMedia('(prefers-color-scheme: dark)').matches; };
+const CURVE_NAME = { low: 'Gentle', normal: 'Twisty', high: 'Very twisty' };
+const HILL_NAME = { low: 'flat', normal: 'rolling', high: 'hilly' };
+const COMPASS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+const compass = (deg) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
-/* ---------------- TomTom + elevation ---------------- */
-async function ttGet(path, params) {
-  if (!KEY) throw new Error('Add your TomTom API key in Settings first.');
-  const q = new URLSearchParams();
-  q.append('key', KEY);
-  for (const [k, v] of params) q.append(k, v);
-  let res;
-  try { res = await fetch('https://api.tomtom.com' + path + '?' + q.toString()); }
-  catch (e) { throw new Error('Could not reach TomTom. Check your connection and try again.'); }
-  let j = null; try { j = await res.json(); } catch (e) {}
-  if (!res.ok) {
-    if (res.status === 403 || res.status === 401) throw new Error('TomTom rejected the API key. Check it in Settings.');
-    if (res.status === 429) throw new Error('TomTom rate limit hit. Wait a minute and try again.');
-    const m = j && (j.error?.description || j.detailedError?.message || j.errorText);
-    throw new Error(m ? 'TomTom: ' + m : 'TomTom returned an error (' + res.status + ').');
-  }
-  return j;
+/* ---------------- request queue (TomTom allows ~5 requests/second) ---------------- */
+let active = 0, lastStart = 0; const waiters = [];
+async function acquire() {
+  while (active >= 2) await new Promise((r) => waiters.push(r));
+  active++;
+  const wait = Math.max(0, lastStart + 240 - Date.now());
+  lastStart = Date.now() + wait;
+  if (wait) await sleep(wait);
 }
+function release() { active--; const w = waiters.shift(); if (w) w(); }
 
-async function getRoute(locs, kind) {
-  const p = [['traffic', 'true'], ['travelMode', 'car'], ['instructionsType', 'coded'], ['computeTravelTimeFor', 'all'],
-    ['sectionType', 'traffic'], ['sectionType', 'motorway'], ['sectionType', 'urban']];
-  if (kind === 'fun') p.push(['routeType', 'thrilling'], ['windingness', S.curves], ['hilliness', S.hills]);
-  else p.push(['routeType', 'fastest']);
-  for (const [k, on] of Object.entries(S.avoid)) {
-    if (!on) continue;
-    if (kind === 'fast' && k === 'motorways') continue;
-    p.push(['avoid', k]);
+async function tt(path, params, body) {
+  if (!KEY) throw new Error('Add your TomTom API key in Settings first.');
+  const q = new URLSearchParams([['key', KEY], ...params]);
+  const url = 'https://api.tomtom.com' + path + '?' + q.toString();
+  const opt = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await acquire();
+    let res, j = null;
+    try { res = await fetch(url, opt); try { j = await res.json(); } catch (e) {} }
+    catch (e) { release(); throw new Error('Could not reach TomTom. Check your connection and try again.'); }
+    release();
+    if (res.ok) return j;
+    const m = j && (j.detailedError?.message || j.error?.description || j.errorText || j.message);
+    if (res.status === 429 && attempt === 0) { await sleep(1200); continue; }
+    if (res.status === 403 || res.status === 401) throw new Error('TomTom rejected the API key (' + res.status + (m ? ': ' + m : '') + '). Open Settings and tap “Test key”.');
+    if (res.status === 429) throw new Error('TomTom rate limit hit. Wait a minute and try again.');
+    const err = new Error(m ? 'TomTom: ' + m : 'TomTom returned an error (' + res.status + ').'); err.soft = true; throw err;
   }
-  if (kind === 'fun' && S.mode === 'loop') p.push(['avoid', 'alreadyUsedRoads']);
-  const dep = departParam(); if (dep) p.push(['departAt', dep]);
-  const path = '/routing/1/calculateRoute/' + locs.map((l) => l.lat.toFixed(6) + ',' + l.lng.toFixed(6)).join(':') + '/json';
-  const j = await ttGet(path, p);
-  if (!j || !j.routes || !j.routes.length) throw new Error('No route found between those places.');
-  return j.routes[0];
 }
 
 function departParam() {
   if (S.leave !== 'later') return null;
   const v = $('#departAt').value;
-  if (!v) return null;
-  if (new Date(v).getTime() < Date.now() + 60000) return null;
+  if (!v || new Date(v).getTime() < Date.now() + 60000) return null;
   return v.length === 16 ? v + ':00' : v;
+}
+
+/* cfg: { type:'thrilling'|'fastest', w, h, hw:bool, toll:bool, loop:bool, rects:[{s,w,n,e}] } */
+async function getRoute(locs, cfg) {
+  const p = [['traffic', 'true'], ['travelMode', 'car'], ['instructionsType', 'coded'], ['computeTravelTimeFor', 'all'],
+    ['sectionType', 'traffic'], ['sectionType', 'motorway'], ['sectionType', 'urban']];
+  if (cfg.type === 'thrilling') p.push(['routeType', 'thrilling'], ['windingness', cfg.w], ['hilliness', cfg.h]);
+  else p.push(['routeType', 'fastest']);
+  if (S.avoid.unpavedRoads) p.push(['avoid', 'unpavedRoads']);
+  if (S.avoid.ferries) p.push(['avoid', 'ferries']);
+  if (cfg.hw) p.push(['avoid', 'motorways']);
+  if (cfg.toll) p.push(['avoid', 'tollRoads']);
+  if (cfg.loop) p.push(['avoid', 'alreadyUsedRoads']);
+  const dep = departParam(); if (dep) p.push(['departAt', dep]);
+  const body = cfg.rects && cfg.rects.length ? { avoidAreas: { rectangles: cfg.rects.map((r) => ({ southWestCorner: { latitude: r.s, longitude: r.w }, northEastCorner: { latitude: r.n, longitude: r.e } })) } } : null;
+  const path = '/routing/1/calculateRoute/' + locs.map((l) => l.lat.toFixed(6) + ',' + l.lng.toFixed(6)).join(':') + '/json';
+  const j = await tt(path, p, body);
+  if (!j || !j.routes || !j.routes.length) { const e = new Error('No route found.'); e.soft = true; throw e; }
+  return j.routes[0];
 }
 
 async function searchPlaces(q) {
   const c = S.start || (map ? { lat: map.getCenter().lat, lng: map.getCenter().lng } : null);
   const p = [['typeahead', 'true'], ['limit', '6']];
   if (c) p.push(['lat', c.lat.toFixed(4)], ['lon', c.lng.toFixed(4)]);
-  const j = await ttGet('/search/2/search/' + encodeURIComponent(q) + '.json', p);
+  const j = await tt('/search/2/search/' + encodeURIComponent(q) + '.json', p);
   return (j.results || []).map((r) => {
     const addr = r.address?.freeformAddress || '';
     const name = r.poi?.name || addr.split(',')[0];
@@ -449,6 +565,12 @@ function hav(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toR) * Math.cos(b[0] * toR) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
+const havP = (a, b) => hav([a.lat, a.lng], [b.lat, b.lng]);
+function bearing(a, b) {
+  const toR = Math.PI / 180, y = Math.sin((b.lng - a.lng) * toR) * Math.cos(b.lat * toR);
+  const x = Math.cos(a.lat * toR) * Math.sin(b.lat * toR) - Math.sin(a.lat * toR) * Math.cos(b.lat * toR) * Math.cos((b.lng - a.lng) * toR);
+  return (Math.atan2(y, x) / toR + 360) % 360;
+}
 function circumR(p1, p2, p3) {
   const lat0 = p2.lat * Math.PI / 180, kx = 111320 * Math.cos(lat0), ky = 110574;
   const ax = p1.lng * kx, ay = p1.lat * ky, bx = p2.lng * kx, by = p2.lat * ky, cx = p3.lng * kx, cy = p3.lat * ky;
@@ -465,7 +587,6 @@ function destPoint(p, bearingDeg, km) {
   return { lat: la2 / toR, lng: ((lo2 / toR + 540) % 360) - 180 };
 }
 
-const LEVEL_R = [Infinity, 175, 100, 60, 30];
 const LEVEL_W = [0, 1, 1.3, 1.6, 2];
 const levelOf = (r) => (r < 30 ? 4 : r < 60 ? 3 : r < 100 ? 2 : r < 175 ? 1 : 0);
 
@@ -478,7 +599,6 @@ function analyze(route) {
   const sum = route.summary;
   const scale = total / (sum.lengthInMeters || total);
 
-  // resample every 20 m
   const STEP = 20, smp = [];
   let j = 0;
   for (let s = 0; s < total; s += STEP) {
@@ -494,56 +614,50 @@ function analyze(route) {
   const lvl = new Uint8Array(m - 1);
   for (let i = 0; i < m - 1; i++) lvl[i] = levelOf(Math.max(R[i], R[i + 1]));
 
-  // zero corners within 35 m of turns / junctions (Curvature's conflict filter)
-  const instr = (route.guidance && route.guidance.instructions) || [];
-  const conflicts = instr.filter((x) => !/^(DEPART|ARRIVE)/.test(x.maneuver || '')).map((x) => (x.routeOffsetInMeters || 0) * scale);
-  for (const off of conflicts) {
-    const a = Math.max(0, Math.floor((off - 35) / STEP)), b = Math.min(m - 2, Math.ceil((off + 35) / STEP));
+  const instr = ((route.guidance && route.guidance.instructions) || []).map((x) => ({ ...x, off: (x.routeOffsetInMeters || 0) * scale }));
+  for (const x of instr) {
+    if (/^(DEPART|ARRIVE)/.test(x.maneuver || '')) continue;
+    const a = Math.max(0, Math.floor((x.off - 35) / STEP)), b = Math.min(m - 2, Math.ceil((x.off + 35) / STEP));
     for (let i = a; i <= b; i++) lvl[i] = 0;
   }
-  // drop isolated one-segment wiggles (Curvature's deflection filter)
   for (let i = 1; i < m - 2; i++) if (lvl[i] && !lvl[i - 1] && !lvl[i + 1]) lvl[i] = 0;
 
-  let curvature = 0, curveLen = 0, tightLen = 0;
-  const segLen = (i) => smp[i + 1].s - smp[i].s;
+  const cum = new Float64Array(m); // cumulative curvature at each sample
+  let curveLen = 0, tightLen = 0;
   for (let i = 0; i < m - 1; i++) {
-    const L = segLen(i);
-    curvature += LEVEL_W[lvl[i]] * L;
+    const L = smp[i + 1].s - smp[i].s;
+    cum[i + 1] = cum[i] + LEVEL_W[lvl[i]] * L;
     if (lvl[i]) curveLen += L;
     if (lvl[i] >= 3) tightLen += L;
   }
+  const curvature = cum[m - 1];
+  const curvBetween = (a, b) => { const i = clamp(Math.round(a / STEP), 0, m - 1), k = clamp(Math.round(b / STEP), 0, m - 1); return cum[k] - cum[i]; };
 
-  // colored runs for the map
   const runs = []; let cur = null;
   for (let i = 0; i < m - 1; i++) {
     if (!cur || cur.lvl !== lvl[i]) { cur = { lvl: lvl[i], ll: [[smp[i].lat, smp[i].lng]] }; runs.push(cur); }
     cur.ll.push([smp[i + 1].lat, smp[i + 1].lng]);
   }
 
-  // curvy stretches: split on straights longer than 1.5 mi
-  const stretches = []; let st = null, straight = 0;
-  for (let i = 0; i < m - 1; i++) {
-    const L = segLen(i);
-    if (lvl[i]) {
-      if (!st) st = { a: smp[i].s, b: smp[i + 1].s, c: 0, i0: i, i1: i };
-      st.b = smp[i + 1].s; st.i1 = i; st.c += LEVEL_W[lvl[i]] * L; straight = 0;
-    } else if (st) {
-      straight += L;
-      if (straight >= 2414) { stretches.push(st); st = null; straight = 0; }
-    }
+  // named roads along the route (one row per road, consecutive same names merged)
+  const roadName = (x) => x.street || (x.roadNumbers || []).join(' / ') || '';
+  const roads = [];
+  const legIns = instr.filter((x) => !/^ARRIVE/.test(x.maneuver || ''));
+  for (let i = 0; i < legIns.length; i++) {
+    const a = legIns[i].off, b = i + 1 < legIns.length ? legIns[i + 1].off : total;
+    if (b - a < 1) continue;
+    const name = roadName(legIns[i]) || 'Unnamed road';
+    const num = (legIns[i].roadNumbers || [])[0] || '';
+    const last = roads[roads.length - 1];
+    if (last && last.name === name) { last.b = b; continue; }
+    roads.push({ name, num, a, b });
   }
-  if (st) stretches.push(st);
-  const best = stretches.filter((x) => x.c >= 300).sort((a, b) => b.c - a.c).slice(0, 4);
-  for (const b of best) {
-    const mid = (b.a + b.b) / 2 / scale;
-    let road = null;
-    for (const x of instr) { if ((x.routeOffsetInMeters || 0) <= mid && (x.street || x.roadNumbers)) road = x; }
-    b.name = road ? (road.street || (road.roadNumbers || []).join(' / ')) : '';
-    const roadNum = road && road.roadNumbers && road.roadNumbers.length ? road.roadNumbers[0] : '';
-    if (roadNum && b.name && !b.name.includes(roadNum)) b.name += ' (' + roadNum + ')';
+  for (const r of roads) {
+    r.len = r.b - r.a; r.c = curvBetween(r.a, r.b);
+    r.key = (r.name + '|' + Math.round(r.a / 200)).toLowerCase();
+    if (r.num && !r.name.includes(r.num)) r.label = r.name + ' (' + r.num + ')'; else r.label = r.name;
   }
 
-  // sections
   const idxS = (k) => d[Math.min(Math.max(k, 0), n - 1)];
   let motor = 0, urban = 0; const traffic = [];
   for (const sct of route.sections || []) {
@@ -551,17 +665,17 @@ function analyze(route) {
     if (sct.sectionType === 'MOTORWAY') motor += L;
     else if (sct.sectionType === 'URBAN') urban += L;
     else if (sct.sectionType === 'TRAFFIC') traffic.push({
-      cat: sct.simpleCategory || 'OTHER', delay: sct.delayInSeconds || 0, mag: sct.magnitudeOfDelay,
-      at: idxS(sct.startPointIndex), len: L,
+      cat: sct.simpleCategory || 'OTHER', delay: sct.delayInSeconds || 0, at: idxS(sct.startPointIndex),
       ll: pts.slice(sct.startPointIndex, Math.min(sct.endPointIndex, n - 1) + 1),
     });
   }
   const turns = instr.filter((x) => !/^(DEPART|ARRIVE|WAYPOINT)/.test(x.maneuver || '')).length;
   const delay = sum.trafficDelayInSeconds || 0;
   const moving = Math.max(60, (sum.travelTimeInSeconds || 0) - delay);
+  const bestRoad = roads.filter((r) => r.c >= 300).sort((a, b) => b.c - a.c)[0] || null;
 
   return {
-    route, pts, d, total, scale, smp, lvl, runs, instr, best,
+    route, pts, d, total, scale, smp, runs, instr, roads, bestRoad,
     curvature, curveLen, tightLen, curveShare: curveLen / total,
     motorShare: motor / total, urbanShare: urban / total, traffic,
     turns, turnsPer10mi: turns / (total / MI) * 10,
@@ -569,21 +683,24 @@ function analyze(route) {
   };
 }
 
-function score(an) {
-  const parts = {
+function factorValues(an) {
+  return {
     curves: clamp(an.curveShare / 0.35),
     open: 1 - clamp(an.motorShare + an.urbanShare),
     hills: an.elev ? clamp((an.elev.up * FT) / (an.total / MI) / 80) : null,
     traffic: 1 - clamp(an.delayRatio / 0.25),
     flow: 1 - clamp((an.turnsPer10mi - 2) / 10),
   };
-  const w = { curves: 40, open: 20, hills: 15, traffic: 15, flow: 10 };
+}
+function score(an) {
+  const parts = factorValues(an);
   let tot = 0, wt = 0;
-  for (const k in w) { if (parts[k] === null) continue; tot += w[k] * parts[k]; wt += w[k]; }
-  return { value: Math.round((tot / wt) * 100), parts };
+  for (const f of FACTORS) { const w = S.weights[f.k]; if (!w || parts[f.k] === null) continue; tot += w * parts[f.k]; wt += w; }
+  return { value: wt ? Math.round((tot / wt) * 100) : 0, parts };
 }
 const scoreLabel = (v) => (v < 25 ? 'Basically a commute' : v < 45 ? 'Some fun bits' : v < 65 ? 'Good drive' : v < 80 ? 'Great drive' : 'Epic drive');
 const bandLabel = (c) => (c >= 10000 ? 'epic road' : c >= 3000 ? 'worth a trip' : c >= 1000 ? 'fun road' : c >= 300 ? 'a few good corners' : 'mostly straight');
+const bandCls = (c) => (c >= 1000 ? 'good' : c >= 300 ? 'warn' : 'mute');
 function trafficLabel(r) {
   if (r < 0.03) return { t: 'Clear', cls: 'good' };
   if (r < 0.10) return { t: 'Light', cls: 'good' };
@@ -594,30 +711,31 @@ const CAT = { JAM: 'Slow traffic', ROAD_WORK: 'Road work', ROAD_CLOSURE: 'Closur
 
 /* ---------------- Google Maps handoff ---------------- */
 function pointAt(an, s) {
-  const i = Math.max(0, Math.min(an.smp.length - 1, Math.round(s / 20)));
+  const i = clamp(Math.round(s / 20), 0, an.smp.length - 1);
   return { lat: an.smp[i].lat, lng: an.smp[i].lng, s: an.smp[i].s };
 }
-function pickWaypoints(an, forced) {
-  const MAX = 9, picks = forced.map((p) => ({ ...p, forced: true }));
+function waypointOffsets(an) { return an.instr.filter((x) => /^WAYPOINT/.test(x.maneuver || '')).map((x) => x.off); }
+function pickStops(an, max) {
+  let forced = waypointOffsets(an).map((s) => pointAt(an, s));
+  if (forced.length > max) { // keep an evenly spread subset
+    const keep = []; for (let i = 0; i < max; i++) keep.push(forced[Math.round((i + 0.5) * forced.length / max - 0.5)]);
+    forced = keep;
+  }
+  const picks = forced.slice();
   const far = (s) => picks.every((p) => Math.abs(p.s - s) > 1200) && s > 800 && s < an.total - 800;
-  // 1) middle of the best curvy stretches
-  for (const b of an.best) { if (picks.length >= Math.min(MAX, forced.length + 5)) break; const s = (b.a + b.b) / 2; if (far(s)) picks.push(pointAt(an, s)); }
-  // 2) middle of the longest road stretches between turns
-  const offs = [0, ...an.instr.map((x) => (x.routeOffsetInMeters || 0) * an.scale), an.total].sort((a, b) => a - b);
-  const legs = [];
-  for (let i = 1; i < offs.length; i++) if (offs[i] - offs[i - 1] > 400) legs.push({ a: offs[i - 1], b: offs[i] });
-  legs.sort((x, y) => (y.b - y.a) - (x.b - x.a));
-  for (const L of legs) { if (picks.length >= MAX) break; const s = L.a + (L.b - L.a) * 0.5; if (far(s)) picks.push(pointAt(an, s)); }
-  return picks.sort((a, b) => a.s - b.s).slice(0, MAX);
+  const curvy = an.roads.filter((r) => r.c >= 300).sort((a, b) => b.c - a.c);
+  for (const r of curvy) { if (picks.length >= max) break; const s = (r.a + r.b) / 2; if (far(s)) picks.push(pointAt(an, s)); }
+  const longest = an.roads.slice().sort((a, b) => b.len - a.len);
+  for (const r of longest) { if (picks.length >= max) break; const s = (r.a + r.b) / 2; if (r.len > 400 && far(s)) picks.push(pointAt(an, s)); }
+  return picks.sort((a, b) => a.s - b.s).slice(0, max);
 }
 function gmapsLinks(origin, dest, wps) {
   const ll = (p) => p.lat.toFixed(6) + ',' + p.lng.toFixed(6);
-  const useHere = origin.here;
   let web = 'https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=' + ll(dest);
-  if (!useHere) web += '&origin=' + ll(origin);
+  if (!origin.here) web += '&origin=' + ll(origin);
   if (wps.length) web += '&waypoints=' + wps.map(ll).join('%7C');
   let app = 'comgooglemaps://?directionsmode=driving&daddr=' + [...wps, dest].map(ll).join('+to:');
-  if (!useHere) app += '&saddr=' + ll(origin);
+  if (!origin.here) app += '&saddr=' + ll(origin);
   return { web, app };
 }
 
@@ -631,20 +749,25 @@ function tileUrls() {
   };
 }
 function initMap() {
+  if (!window.L) {
+    $('#map').innerHTML = '<p class="fine" style="padding:16px">The map couldn’t load, but routes, scores and the Google Maps button still work. Try reloading.</p>';
+    document.querySelector('.legend').hidden = true; $('#trafficLayerBtn').hidden = true;
+    return;
+  }
   map = L.map('map', { zoomControl: true, attributionControl: true }).setView([36.1627, -86.7816], 9);
   setBase();
   routeGroup = L.layerGroup().addTo(map);
 }
 function setBase() {
+  if (!map) return;
   const u = tileUrls();
   if (baseLayer) map.removeLayer(baseLayer);
-  baseLayer = KEY
-    ? L.tileLayer(u.base, { maxZoom: 20, attribution: '© TomTom' })
-    : L.tileLayer(u.osm, { maxZoom: 19, attribution: '© OpenStreetMap' });
+  baseLayer = KEY ? L.tileLayer(u.base, { maxZoom: 20, attribution: '© TomTom' }) : L.tileLayer(u.osm, { maxZoom: 19, attribution: '© OpenStreetMap' });
   baseLayer.addTo(map); baseLayer.bringToBack();
   if (trafficLayer) { const on = map.hasLayer(trafficLayer); map.removeLayer(trafficLayer); trafficLayer = null; if (on) toggleTraffic(true); }
 }
 function toggleTraffic(force) {
+  if (!map) return;
   const btn = $('#trafficLayerBtn');
   const on = typeof force === 'boolean' ? force : !(trafficLayer && map.hasLayer(trafficLayer));
   if (on && !KEY) { showErr('Add your TomTom API key in Settings to see live traffic.'); return; }
@@ -652,47 +775,85 @@ function toggleTraffic(force) {
   if (on) trafficLayer.addTo(map); else map.removeLayer(trafficLayer);
   btn.setAttribute('aria-pressed', String(on));
 }
-let lastDraw = null;
-function draw(fun, fast, wps) {
-  lastDraw = [fun, fast, wps];
-  routeGroup.clearLayers();
+let highlight = null;
+function draw(c, fit = true) {
+  if (!map || !c) return;
+  routeGroup.clearLayers(); highlight = null;
+  const an = c.an;
   const colors = [tok('--route'), tok('--c1'), tok('--c2'), tok('--c3'), tok('--c4')];
-  if (fast) L.polyline(fast.pts, { color: tok('--fast'), weight: 4, opacity: 0.85, dashArray: '2 9', lineCap: 'round' }).addTo(routeGroup)
-    .bindTooltip('Fastest route', { sticky: true });
-  for (const t of fun.traffic) if (t.ll.length > 1) L.polyline(t.ll, { color: tok('--bad'), weight: 14, opacity: 0.35 }).addTo(routeGroup)
+  for (const o of RUN.cands) if (o !== c && o.ok) L.polyline(o.an.pts, { color: tok('--alt'), weight: 3, opacity: 0.55 }).addTo(routeGroup)
+    .on('click', () => select(o.id, true)).bindTooltip(o.label + ' · ' + o.sc.value, { sticky: true });
+  if (RUN.fast) L.polyline(RUN.fast.pts, { color: tok('--fast'), weight: 4, opacity: 0.85, dashArray: '2 9', lineCap: 'round' }).addTo(routeGroup).bindTooltip('Fastest route', { sticky: true });
+  for (const t of an.traffic) if (t.ll.length > 1) L.polyline(t.ll, { color: tok('--bad'), weight: 14, opacity: 0.35 }).addTo(routeGroup)
     .bindTooltip((CAT[t.cat] || 'Traffic') + (t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''), { sticky: true });
-  L.polyline(fun.pts, { color: tok('--casing'), weight: 9, opacity: 0.9 }).addTo(routeGroup);
-  for (const r of fun.runs) L.polyline(r.ll, { color: colors[r.lvl], weight: r.lvl ? 6 : 5, opacity: 1 }).addTo(routeGroup);
-  const s = fun.pts[0], e = fun.pts[fun.pts.length - 1];
+  for (const r of c.cfg.rects || []) L.rectangle([[r.s, r.w], [r.n, r.e]], { color: tok('--bad'), weight: 1, fillOpacity: 0.25 }).addTo(routeGroup).bindTooltip('Skipped');
+  L.polyline(an.pts, { color: tok('--casing'), weight: 9, opacity: 0.9 }).addTo(routeGroup);
+  for (const r of an.runs) L.polyline(r.ll, { color: colors[r.lvl], weight: r.lvl ? 6 : 5, opacity: 1 }).addTo(routeGroup);
+  const s = an.pts[0], e = an.pts[an.pts.length - 1];
   L.circleMarker(s, { radius: 8, color: tok('--casing'), weight: 3, fillColor: tok('--ink'), fillOpacity: 1 }).addTo(routeGroup).bindTooltip('Start');
-  if (S.mode === 'ab') L.marker(e, { icon: L.divIcon({ className: 'end-pin', iconSize: [16, 16] }) }).addTo(routeGroup).bindTooltip('Finish');
-  (wps || []).forEach((w, i) => L.marker([w.lat, w.lng], { icon: L.divIcon({ className: 'wp-dot', html: String(i + 1), iconSize: [20, 20] }) })
+  if (RUN.mode === 'ab') L.marker(e, { icon: L.divIcon({ className: 'end-pin', iconSize: [16, 16] }) }).addTo(routeGroup).bindTooltip('Finish');
+  c.stops.forEach((w, i) => L.marker([w.lat, w.lng], { icon: L.divIcon({ className: 'wp-dot', html: String(i + 1), iconSize: [20, 20] }) })
     .addTo(routeGroup).bindTooltip('Google Maps stop ' + (i + 1)));
-  map.fitBounds(L.latLngBounds(fun.pts), { padding: [28, 28] });
+  if (fit) map.fitBounds(L.latLngBounds(an.pts), { padding: [28, 28] });
+}
+function highlightRoad(c, r) {
+  if (!map) return;
+  if (highlight) routeGroup.removeLayer(highlight);
+  const ll = c.an.smp.filter((p) => p.s >= r.a && p.s <= r.b).map((p) => [p.lat, p.lng]);
+  if (ll.length < 2) return;
+  highlight = L.polyline(ll, { color: tok('--ink'), weight: 12, opacity: 0.35 }).addTo(routeGroup);
+  map.fitBounds(L.latLngBounds(ll), { padding: [40, 40], maxZoom: 15 });
 }
 
 /* ---------------- UI wiring ---------------- */
 function showErr(t) { const el = $('#err'); el.textContent = t; el.hidden = !t; }
+function setProgress(text, frac) { $('#loadingText').textContent = text; $('#loadingBar').style.width = Math.round(clamp(frac) * 100) + '%'; }
 function syncSeg(g) { const v = S[g.dataset.key]; g.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(v)))); }
-document.querySelectorAll('.seg').forEach((g) => {
+function savePrefs() { store.set(PREFS, JSON.stringify({ curves: S.curves, hills: S.hills, hw: S.hw, toll: S.toll, avoid: S.avoid, weights: S.weights, maxExtra: S.maxExtra, stops: S.stops })); }
+
+document.querySelectorAll('.card > .seg, .field .seg, .two .seg').forEach((g) => {
+  if (!g.dataset.key) return;
   g.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     S[g.dataset.key] = b.dataset.v; syncSeg(g);
-    if (g.dataset.key === 'mode') { $('#endField').hidden = S.mode !== 'ab'; $('#loopFields').hidden = S.mode !== 'loop'; }
+    if (g.dataset.key === 'mode') { $('#endField').hidden = S.mode !== 'ab'; $('#extraField').hidden = S.mode !== 'ab'; $('#loopFields').hidden = S.mode !== 'loop'; }
     if (g.dataset.key === 'leave') {
       const inp = $('#departAt'); inp.hidden = S.leave !== 'later';
       if (!inp.hidden && !inp.value) { const t = new Date(Date.now() + 3600e3); t.setMinutes(0, 0, 0); inp.value = new Date(t - t.getTimezoneOffset() * 6e4).toISOString().slice(0, 16); }
     }
+    savePrefs();
   });
 });
 document.querySelectorAll('[data-avoid]').forEach((b) => b.addEventListener('click', () => {
-  const k = b.dataset.avoid; S.avoid[k] = !S.avoid[k]; b.setAttribute('aria-pressed', String(S.avoid[k]));
+  const k = b.dataset.avoid; S.avoid[k] = !S.avoid[k]; b.setAttribute('aria-pressed', String(S.avoid[k])); savePrefs();
 }));
-$('#loopMin').addEventListener('input', (e) => {
-  S.loopMin = +e.target.value;
-  $('#loopMinVal').textContent = 'about ' + (S.loopMin < 60 ? S.loopMin + ' min' : fmtDur(S.loopMin * 60));
-});
+const extraText = (v) => (v >= 125 ? 'no limit' : '+' + (v < 60 ? v + ' min' : fmtDur(v * 60)));
+$('#maxExtra').addEventListener('input', (e) => { S.maxExtra = +e.target.value; $('#maxExtraVal').textContent = extraText(S.maxExtra); rerank(); savePrefs(); });
+$('#loopMin').addEventListener('input', (e) => { S.loopMin = +e.target.value; $('#loopMinVal').textContent = 'about ' + (S.loopMin < 60 ? S.loopMin + ' min' : fmtDur(S.loopMin * 60)); });
+$('#stops').addEventListener('input', (e) => { S.stops = +e.target.value; $('#stopsVal').textContent = S.stops; for (const c of RUN.cands) c.stops = pickStops(c.an, S.stops); refreshSelected(false); savePrefs(); });
 $('#trafficLayerBtn').addEventListener('click', () => toggleTraffic());
+
+function buildWeights() {
+  $('#weights').innerHTML = FACTORS.map((f) => `<div class="w-row"><label for="w_${f.k}">${f.name}<small>${f.sub}</small></label>
+    <input type="range" id="w_${f.k}" min="0" max="10" step="1" value="${S.weights[f.k]}"><output id="wo_${f.k}"></output></div>`).join('');
+  for (const f of FACTORS) {
+    const inp = $('#w_' + f.k);
+    inp.addEventListener('input', () => { S.weights[f.k] = +inp.value; syncWeights(); rerank(); savePrefs(); });
+  }
+  syncWeights();
+}
+function syncWeights() {
+  const tot = FACTORS.reduce((a, f) => a + S.weights[f.k], 0) || 1;
+  for (const f of FACTORS) {
+    const o = $('#wo_' + f.k), w = S.weights[f.k];
+    $('#w_' + f.k).value = w;
+    o.textContent = w ? Math.round(w / tot * 100) + '%' : 'off'; o.classList.toggle('off', !w);
+  }
+}
+$('#presets').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-preset]'); if (!b) return;
+  S.weights = { ...PRESETS[b.dataset.preset] }; syncWeights(); rerank(); savePrefs();
+});
 
 function setupPlace(inputId, listId, slot) {
   const input = $(inputId), list = $(listId);
@@ -722,7 +883,7 @@ $('#locBtn').addEventListener('click', () => {
   if (!navigator.geolocation) { showErr("Location isn't available in this browser. Type a start address instead."); return; }
   $('#startInput').value = 'Finding you…';
   navigator.geolocation.getCurrentPosition(
-    (p) => { S.start = { lat: p.coords.latitude, lng: p.coords.longitude, label: 'Current location', here: true }; $('#startInput').value = 'Current location'; map.setView([S.start.lat, S.start.lng], 11); },
+    (p) => { S.start = { lat: p.coords.latitude, lng: p.coords.longitude, label: 'Current location', here: true }; $('#startInput').value = 'Current location'; if (map) map.setView([S.start.lat, S.start.lng], 11); },
     () => { $('#startInput').value = ''; showErr('Location permission was denied. Type a start address instead.'); },
     { enableHighAccuracy: true, timeout: 12000 }
   );
@@ -739,72 +900,258 @@ async function resolve(slot, inputId, what) {
   return S[slot];
 }
 
-/* ---------------- loop builder ---------------- */
-function loopWaypoints(start, minutes, radiusKm) {
-  const theta = S.heading === 'any' ? (S.loopSpin % 360) : +S.heading + (S.loopSpin % 3 - 1) * 20;
-  const center = destPoint(start, theta, radiusKm);
-  const back = (theta + 180) % 360;
-  const dir = S.loopDir;
-  return [90, 180, 270].map((a) => destPoint(center, (back + dir * a + 360) % 360, radiusKm));
+/* ---------------- candidates ---------------- */
+const RUN = { mode: 'ab', cands: [], fast: null, start: null, dest: null, selected: null, userPicked: false, target: 0, tested: 0, failed: 0 };
+let cid = 0;
+function labelFor(cfg, meta) {
+  const bits = [CURVE_NAME[cfg.w] || 'Fastest', HILL_NAME[cfg.h]].filter(Boolean);
+  let s = bits.join(', ');
+  if (cfg.hw) s += ' · no highways'; if (cfg.toll) s += ' · no tolls';
+  if (meta.detour) s += ' · detour ' + meta.detour;
+  if (meta.heading !== undefined) s = 'Loop ' + compass(meta.heading) + ' · ' + s;
+  if (meta.edit) s = 'Your edit · ' + s;
+  return s;
 }
-async function buildLoop(start) {
-  const target = S.loopMin * 60;
-  let km = (S.loopMin / 60) * 58 / 1.4 / (2 * Math.PI);
-  let best = null;
+async function evaluate(locs, cfg, meta = {}) {
+  try {
+    const route = await getRoute(locs, cfg);
+    const an = analyze(route);
+    an.elev = await getElevation(an);
+    const c = { id: ++cid, cfg, locs, meta, an, marks: {}, label: labelFor(cfg, meta) };
+    c.stops = pickStops(an, S.stops);
+    RUN.tested++;
+    return c;
+  } catch (e) {
+    if (!e.soft) throw e;
+    RUN.failed++; RUN.tested++;
+    return null;
+  }
+}
+function judge(c) {
+  c.sc = score(c.an);
+  const t = c.an.summary.travelTimeInSeconds;
+  if (RUN.mode === 'ab') {
+    c.extra = RUN.fast ? t - RUN.fast.summary.travelTimeInSeconds : null;
+    c.ok = S.maxExtra >= 125 || c.extra === null || c.extra <= S.maxExtra * 60 + 30;
+  } else {
+    c.extra = t - RUN.target;
+    c.ok = Math.abs(t / RUN.target - 1) <= 0.3;
+  }
+}
+function ranked() {
+  for (const c of RUN.cands) judge(c);
+  return RUN.cands.slice().sort((a, b) => (b.ok - a.ok) || (b.sc.value - a.sc.value) || (a.an.summary.travelTimeInSeconds - b.an.summary.travelTimeInSeconds));
+}
+function bestOf(list) { const l = list.filter(Boolean); for (const c of l) judge(c); return l.sort((a, b) => (b.ok - a.ok) || (b.sc.value - a.sc.value))[0] || null; }
+
+async function runPool(tasks, onDone) {
+  const out = []; let i = 0;
+  async function worker() { while (i < tasks.length) { const k = i++; out[k] = await tasks[k](); onDone && onDone(); } }
+  await Promise.all([worker(), worker()]);
+  return out;
+}
+
+function autoList(v, all) { return v === 'auto' ? all : [v]; }
+const W_ALL = ['high', 'normal', 'low'], H_ALL = ['normal', 'high', 'low'];
+const boolList = (v) => (v === 'auto' ? [false, true] : [v === 'avoid']);
+
+/* ---------- A to B optimizer ---------- */
+async function optimizeAB(start, dest, quick) {
+  const Ws = quick ? [S.curves === 'auto' ? 'high' : S.curves] : autoList(S.curves, W_ALL);
+  const Hs = quick ? [S.hills === 'auto' ? 'normal' : S.hills] : autoList(S.hills, H_ALL);
+  const HWs = quick ? [S.hw === 'avoid'] : boolList(S.hw), TLs = quick ? [S.toll === 'avoid'] : boolList(S.toll);
+  const detours = !quick && S.maxExtra > 0;
+  const plan = Ws.length * Hs.length + (HWs.length * TLs.length - 1) + (detours ? 6 : 0) + 1;
+  let done = 0; const tick = (msg) => { done++; setProgress((msg || 'Testing routes') + ' · ' + done + ' of ' + plan, done / plan); };
+
+  setProgress('Finding the fastest route to compare against…', 0);
+  const [fastRoute, stage1] = await Promise.all([
+    getRoute([start, dest], { type: 'fastest', toll: S.toll === 'avoid' }).catch((e) => { if (!e.soft) throw e; return null; }),
+    runPool(Ws.flatMap((w) => Hs.map((h) => () => evaluate([start, dest], { type: 'thrilling', w, h, hw: HWs[0], toll: TLs[0] }))), () => tick('Trying curve and hill settings')),
+  ]);
+  tick();
+  if (fastRoute) { RUN.fast = analyze(fastRoute); RUN.fast.elev = await getElevation(RUN.fast); }
+  RUN.cands.push(...stage1.filter(Boolean));
+  let best = bestOf(RUN.cands);
+  if (!best) throw new Error('No curvy route found between those places. Try a different finish or turn off some avoids.');
+
+  const combos = [];
+  for (const hw of HWs) for (const toll of TLs) if (!(hw === HWs[0] && toll === TLs[0])) combos.push({ ...best.cfg, hw, toll });
+  if (combos.length) {
+    const r = await runPool(combos.map((cfg) => () => evaluate([start, dest], cfg)), () => tick('Trying highway and toll options'));
+    RUN.cands.push(...r.filter(Boolean)); best = bestOf(RUN.cands);
+  }
+
+  if (detours) {
+    const D = havP(start, dest) / 1000, brg = bearing(start, dest);
+    const fastMin = RUN.fast ? RUN.fast.summary.travelTimeInSeconds / 60 : D / 0.9;
+    const budgetMin = Math.min(S.maxExtra >= 125 ? Math.max(90, fastMin) : S.maxExtra, 150);
+    const X = (budgetMin / 60) * 50 * 0.55; // km of extra road the budget buys, spent conservatively
+    const off = Math.min(45, Math.sqrt(Math.pow((D + X) / 2, 2) - Math.pow(D / 2, 2)));
+    const tasks = [];
+    for (const frac of [1 / 3, 1 / 2, 2 / 3]) for (const side of [-1, 1]) {
+      const along = destPoint(start, brg, D * frac);
+      const pt = destPoint(along, brg + 90 * side, off * (frac === 1 / 2 ? 1 : 0.8));
+      tasks.push(() => evaluate([start, pt, dest], { ...best.cfg }, { detour: compass(brg + 90 * side) + (frac < 0.4 ? ', early' : frac > 0.6 ? ', late' : '') }));
+    }
+    const r = await runPool(tasks, () => tick('Trying detours'));
+    RUN.cands.push(...r.filter(Boolean));
+  }
+}
+
+/* ---------- Loop optimizer ---------- */
+function loopLocs(start, heading, km, dir = 1) {
+  const center = destPoint(start, heading, km);
+  const back = (heading + 180) % 360;
+  return [start, ...[90, 180, 270].map((a) => destPoint(center, (back + dir * a + 360) % 360, km)), start];
+}
+async function optimizeLoop(start, quick) {
+  RUN.target = S.loopMin * 60;
+  const Ws = quick ? [S.curves === 'auto' ? 'high' : S.curves] : autoList(S.curves, W_ALL);
+  const Hs = quick ? [S.hills === 'auto' ? 'normal' : S.hills] : autoList(S.hills, H_ALL);
+  const HWs = quick ? [S.hw === 'avoid'] : boolList(S.hw), TLs = quick ? [S.toll === 'avoid'] : boolList(S.toll);
+  const spin = Math.floor(Math.random() * 360);
+  const headings = S.heading === 'auto' ? (quick ? [spin] : [0, 45, 90, 135, 180, 225, 270, 315].map((h) => (h + spin % 45) % 360)) : [+S.heading];
+  const baseCfg = { type: 'thrilling', w: Ws[0], h: Hs[0], hw: HWs[0], toll: TLs[0], loop: true };
+  const plan = 3 + (headings.length - 1) + (Ws.length * Hs.length - 1) + (HWs.length * TLs.length - 1);
+  let done = 0; const tick = (msg) => { done++; setProgress(msg + ' · ' + done + ' of ' + plan, done / plan); };
+
+  // calibrate the loop size so drive time lands near the target
+  let km = (S.loopMin / 60) * 58 / 1.4 / (2 * Math.PI), first = null;
+  setProgress('Sizing the loop…', 0);
   for (let attempt = 0; attempt < 3; attempt++) {
-    const wps = loopWaypoints(start, S.loopMin, km);
-    const route = await getRoute([start, ...wps, start], 'fun');
-    const t = route.summary.travelTimeInSeconds;
-    if (!best || Math.abs(t - target) < Math.abs(best.route.summary.travelTimeInSeconds - target)) best = { route, wps };
-    const ratio = t / target;
-    if (ratio > 0.8 && ratio < 1.25) break;
+    const c = await evaluate(loopLocs(start, headings[0], km), baseCfg, { heading: headings[0] });
+    tick('Sizing the loop');
+    if (!c) { km *= 0.8; continue; }
+    if (!first || Math.abs(c.an.summary.travelTimeInSeconds - RUN.target) < Math.abs(first.an.summary.travelTimeInSeconds - RUN.target)) first = c;
+    const ratio = c.an.summary.travelTimeInSeconds / RUN.target;
+    if (ratio > 0.85 && ratio < 1.18) break;
     km *= clamp(1 / ratio, 0.45, 2.2);
   }
-  return best;
+  if (!first) throw new Error('Could not build a loop from here. Try a longer loop or a different start.');
+  RUN.cands.push(first);
+  if (headings.length > 1) {
+    const r = await runPool(headings.slice(1).map((h) => () => evaluate(loopLocs(start, h, km), baseCfg, { heading: h })), () => tick('Trying directions'));
+    RUN.cands.push(...r.filter(Boolean));
+  }
+  let best = bestOf(RUN.cands);
+  const grid = [];
+  for (const w of Ws) for (const h of Hs) if (!(w === best.cfg.w && h === best.cfg.h)) grid.push({ ...best.cfg, w, h });
+  if (grid.length) {
+    const r = await runPool(grid.map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying curve and hill settings'));
+    RUN.cands.push(...r.filter(Boolean)); best = bestOf(RUN.cands);
+  }
+  const combos = [];
+  for (const hw of HWs) for (const toll of TLs) if (!(hw === best.cfg.hw && toll === best.cfg.toll)) combos.push({ ...best.cfg, hw, toll });
+  if (combos.length) {
+    const r = await runPool(combos.map((cfg) => () => evaluate(best.locs, cfg, best.meta)), () => tick('Trying highway and toll options'));
+    RUN.cands.push(...r.filter(Boolean));
+  }
+}
+
+/* ---------- rebuild with keep / skip ---------- */
+async function rebuild(c) {
+  const an = c.an;
+  const keeps = an.roads.filter((r) => c.marks[r.key] === 'keep');
+  const skips = an.roads.filter((r) => c.marks[r.key] === 'skip');
+  const rects = (c.cfg.rects || []).slice();
+  for (const r of skips) {
+    for (const f of (r.len > 1500 ? [0.3, 0.5, 0.7] : [0.5])) {
+      if (rects.length >= 10) break;
+      const p = pointAt(an, r.a + (r.b - r.a) * f);
+      const dLat = 0.0011, dLng = 0.0011 / Math.cos(p.lat * Math.PI / 180);
+      rects.push({ s: p.lat - dLat, n: p.lat + dLat, w: p.lng - dLng, e: p.lng + dLng });
+    }
+  }
+  const inSkip = (s) => skips.some((r) => s >= r.a - 100 && s <= r.b + 100);
+  const inRect = (p) => rects.some((r) => p.lat >= r.s && p.lat <= r.n && p.lng >= r.w && p.lng <= r.e);
+  const offs = waypointOffsets(an);
+  const inter = c.locs.slice(1, -1).map((pt, i) => ({ pt, s: offs[i] ?? 0 })).filter((w) => !inSkip(w.s) && !inRect(w.pt));
+  const pins = [];
+  for (const r of keeps) for (const f of (r.len > 3000 ? [0.3, 0.7] : [0.5])) { const p = pointAt(an, r.a + (r.b - r.a) * f); if (!inRect(p)) pins.push({ pt: { lat: p.lat, lng: p.lng }, s: p.s }); }
+  const mids = [...inter, ...pins].sort((a, b) => a.s - b.s).map((w) => w.pt);
+  const locs = [c.locs[0], ...mids, c.locs[c.locs.length - 1]];
+  const cfg = { ...c.cfg, rects };
+  setProgress('Rebuilding with your changes…', 0.5);
+  const n = await evaluate(locs, cfg, { ...c.meta, edit: true });
+  if (!n) throw new Error('TomTom couldn’t find a route with those changes. A skipped road may be the only way through; try un-skipping it.');
+  n.label = 'Your edit · ' + (keeps.length ? keeps.length + ' kept' : '') + (keeps.length && skips.length ? ', ' : '') + (skips.length ? skips.length + ' skipped' : '');
+  RUN.cands.push(n);
+  return n;
 }
 
 /* ---------------- main ---------------- */
-let runId = 0;
-async function go() {
+let runId = 0, busy = false;
+function setBusy(on) {
+  busy = on; $('#loading').hidden = !on;
+  ['#optBtn', '#quickBtn'].forEach((s) => { $(s).disabled = on; });
+  document.querySelectorAll('[data-act="rebuild"]').forEach((b) => { b.disabled = on; });
+}
+async function go(quick) {
   showErr('');
   if (!KEY) { openSettings(); return; }
+  if (busy) return;
   const my = ++runId;
-  const btn = $('#goBtn'); btn.disabled = true; $('#loading').hidden = false;
+  setBusy(true); setProgress('Finding your start…', 0);
   try {
     const start = await resolve('start', '#startInput', 'start');
-    let fun, fast = null, forced = [], dest;
-    if (S.mode === 'ab') {
-      dest = await resolve('end', '#endInput', 'finish');
-      const [a, b] = await Promise.all([getRoute([start, dest], 'fun'), getRoute([start, dest], 'fast').catch(() => null)]);
-      fun = analyze(a); if (b) fast = analyze(b);
-    } else {
-      dest = start;
-      const L = await buildLoop(start);
-      fun = analyze(L.route);
-      // pin each loop turnaround point where the route actually reached it
-      const wpInstr = fun.instr.filter((x) => /^WAYPOINT/.test(x.maneuver || ''));
-      forced = wpInstr.map((x) => pointAt(fun, (x.routeOffsetInMeters || 0) * fun.scale));
-    }
+    const dest = S.mode === 'ab' ? await resolve('end', '#endInput', 'finish') : start;
+    Object.assign(RUN, { mode: S.mode, cands: [], fast: null, start, dest, selected: null, userPicked: false, tested: 0, failed: 0, quick });
+    if (S.mode === 'ab') await optimizeAB(start, dest, quick); else await optimizeLoop(start, quick);
     if (my !== runId) return;
-    const [e1, e2] = await Promise.all([getElevation(fun), fast ? getElevation(fast) : Promise.resolve(null)]);
-    fun.elev = e1; if (fast) fast.elev = e2;
-    if (my !== runId) return;
-    const wps = pickWaypoints(fun, forced);
-    draw(fun, fast, wps);
-    render(fun, fast, wps, start, dest);
-    store.set('switchback.last', JSON.stringify({ curves: S.curves, hills: S.hills, avoid: S.avoid }));
+    const top = ranked()[0];
+    if (!top) throw new Error('No route found. Try different places or fewer avoids.');
+    select(top.id, false);
+    $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   } catch (e) {
     if (my === runId) showErr(e.message || String(e));
   } finally {
-    if (my === runId) { btn.disabled = false; $('#loading').hidden = true; }
+    if (my === runId) setBusy(false);
   }
 }
-$('#goBtn').addEventListener('click', go);
-$('#endInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#endInput').blur(); go(); } });
+$('#optBtn').addEventListener('click', () => go(false));
+$('#quickBtn').addEventListener('click', () => go(true));
+$('#endInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#endInput').blur(); go(false); } });
 
-function bar(label, frac, value, note) {
-  return `<div class="bar"><div class="top-line"><span>${label}</span><span>${value}</span></div>
-    <div class="track"><i style="width:${Math.round(clamp(frac) * 100)}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
+function select(id, byUser) {
+  const c = RUN.cands.find((x) => x.id === id); if (!c) return;
+  RUN.selected = id; if (byUser) RUN.userPicked = true;
+  renderList(); renderDetail(c); draw(c, true);
+}
+function refreshSelected(fit) {
+  const c = RUN.cands.find((x) => x.id === RUN.selected); if (!c) return;
+  renderList(); renderDetail(c); draw(c, fit);
+}
+const rerank = debounce(() => {
+  if (!RUN.cands.length) return;
+  const top = ranked()[0];
+  if (!RUN.userPicked && top && top.id !== RUN.selected) { RUN.selected = top.id; refreshSelected(true); }
+  else refreshSelected(false);
+}, 120);
+
+/* ---------------- rendering ---------------- */
+function renderList() {
+  const list = ranked();
+  $('#candCard').hidden = list.length < 2;
+  $('#candMeta').textContent = RUN.tested + ' tested' + (RUN.failed ? ' · ' + RUN.failed + ' failed' : '');
+  $('#cands').innerHTML = (() => { const top = list.slice(0, 8); const sel = list.find((c) => c.id === RUN.selected); if (sel && !top.includes(sel)) top.push(sel); return top; })().map((c) => {
+    const i = list.indexOf(c);
+    const t = c.an.summary.travelTimeInSeconds;
+    const extra = RUN.mode === 'ab'
+      ? (c.extra === null ? '' : (c.extra >= 0 ? '+' : '−') + fmtDur(c.extra) + ' vs fastest')
+      : (c.extra >= 0 ? '+' : '−') + fmtDur(c.extra) + ' vs target';
+    return `<li><button type="button" class="cand${c.ok ? '' : ' over'}" data-id="${c.id}" aria-pressed="${c.id === RUN.selected}">
+      <span class="sc">${c.sc.value}</span>
+      <span class="nm"><b>${i === 0 && c.ok ? '★ ' : ''}${esc(c.label)}</b><small>${Math.round(c.an.curveShare * 100)}% corners · ${fmtMi(c.an.total)} mi${c.ok ? '' : ' · over your limit'}</small></span>
+      <span class="tm">${fmtDur(t)}<small>${extra}</small></span></button></li>`;
+  }).join('');
+}
+$('#cands').addEventListener('click', (e) => { const b = e.target.closest('.cand'); if (b) select(+b.dataset.id, true); });
+
+function bar(f, frac, value, note) {
+  const w = S.weights[f.k];
+  return `<div class="bar${w ? '' : ' off'}"><div class="top-line"><span>${f.name}<em>${w ? '×' + w : 'off'}</em></span><span>${value}</span></div>
+    <div class="track"><i style="width:${Math.round(clamp(frac ?? 0) * 100)}%"></i></div>${note ? `<small>${note}</small>` : ''}</div>`;
 }
 function profileSvg(elev) {
   if (!elev) return '';
@@ -820,34 +1167,43 @@ function profileSvg(elev) {
     </svg></div>`;
 }
 
-function render(fun, fast, wps, start, dest) {
-  const sc = score(fun), fsc = fast ? score(fast) : null;
-  const sum = fun.summary, tl = trafficLabel(fun.delayRatio);
-  const links = gmapsLinks(start, dest, wps);
-  const miles = fun.total / MI;
-  const hillsTxt = fun.elev ? `${fmtInt(fun.elev.up * FT)} ft climb` : 'no elevation data';
-  const vsFast = fast ? (() => {
-    const dt = sum.travelTimeInSeconds - fast.summary.travelTimeInSeconds, dd = fun.total - fast.total;
-    return `<b>${dt >= 0 ? '+' : '−'}${fmtDur(Math.abs(dt))}</b><span class="sub">${dd >= 0 ? '+' : '−'}${fmtMi(Math.abs(dd))} mi vs fastest</span>`;
-  })() : `<b>${esc(S.loopMin)} min</b><span class="sub">loop target</span>`;
+function renderDetail(c) {
+  const an = c.an, sc = c.sc, sum = an.summary, tl = trafficLabel(an.delayRatio);
+  const links = gmapsLinks(RUN.start, RUN.dest, c.stops);
+  const miles = an.total / MI;
+  const f = Object.fromEntries(FACTORS.map((x) => [x.k, x]));
+  const vs = RUN.mode === 'ab'
+    ? (c.extra === null ? '<b>—</b><span class="sub">no fastest route</span>' : `<b>${c.extra >= 0 ? '+' : '−'}${fmtDur(c.extra)}</b><span class="sub">${fmtMi(Math.abs(an.total - RUN.fast.total))} mi ${an.total >= RUN.fast.total ? 'longer' : 'shorter'} than fastest</span>`)
+    : `<b>${c.extra >= 0 ? '+' : '−'}${fmtDur(c.extra)}</b><span class="sub">vs ${S.loopMin} min target</span>`;
   const typical = sum.historicTrafficTravelTimeInSeconds, freeflow = sum.noTrafficTravelTimeInSeconds;
+  const marksCount = Object.values(c.marks).filter(Boolean).length;
+  const roads = an.roads.filter((r) => r.len >= 640);
+  const topKeys = new Set(roads.filter((r) => r.c >= 300).sort((a, b) => b.c - a.c).slice(0, 3).map((r) => r.key));
 
-  const best = fun.best.length ? `<ul class="stretches">${fun.best.map((b, i) => `<li><span class="rk"><span>${i + 1}</span></span>
-      <span class="nm"><b>${esc(b.name || 'Unnamed road')}</b><small>mile ${fmtMi(b.a)}–${fmtMi(b.b)} · ${bandLabel(b.c)}</small></span>
-      <span class="cv">${fmtInt(b.c)}</span></li>`).join('')}</ul>`
-    : `<p class="fine">No single stretch reaches 300 on the Curvature scale. Try “Very twisty”, or a start farther from the city.</p>`;
+  const roadsHtml = roads.length ? `<ul class="roads">${roads.map((r) => {
+    const m = c.marks[r.key] || 'none';
+    return `<li class="road ${m === 'none' ? '' : m}" data-key="${esc(r.key)}">
+      <button type="button" class="rn" data-act="focus"><b>${topKeys.has(r.key) ? '◆ ' : ''}${esc(r.label)}</b>
+        <small>mile ${fmtMi(r.a)}–${fmtMi(r.b)} · ${fmtMi(r.len)} mi · </small><span class="pill ${bandCls(r.c)}">${r.c >= 300 ? fmtInt(r.c) + ' · ' : ''}${bandLabel(r.c)}</span></button>
+      <div class="seg" role="group" aria-label="${esc(r.label)}">
+        <button type="button" data-mark="keep" data-v="keep" aria-pressed="${m === 'keep'}">Keep</button>
+        <button type="button" data-mark="none" data-v="none" aria-pressed="${m === 'none'}">Either</button>
+        <button type="button" data-mark="skip" data-v="skip" aria-pressed="${m === 'skip'}">Skip</button>
+      </div></li>`;
+  }).join('')}</ul>` : '<p class="fine">This route is too short to break into roads.</p>';
 
-  const incidents = fun.traffic.length
-    ? `<ul class="incidents">${fun.traffic.map((t) => `<li><span>${esc(CAT[t.cat] || 'Traffic')}${t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''}</span><span>mile ${fmtMi(t.at)}</span></li>`).join('')}</ul>`
+  const incidents = an.traffic.length
+    ? `<ul class="incidents">${an.traffic.map((t) => `<li><span>${esc(CAT[t.cat] || 'Traffic')}${t.delay ? ' · +' + Math.max(1, Math.round(t.delay / 60)) + ' min' : ''}</span><span>mile ${fmtMi(t.at)}</span></li>`).join('')}</ul>`
     : `<p class="fine">No jams, closures or road work reported on this route right now.</p>`;
 
-  const cmp = fast ? `<section class="card"><div class="section-h"><h3>Fun route vs fastest</h3></div><div class="tbl-wrap"><table>
-      <thead><tr><th></th><th>Fun</th><th>Fastest</th></tr></thead><tbody>
-      <tr><td>Distance</td><td>${fmtMi(fun.total)} mi</td><td>${fmtMi(fast.total)} mi</td></tr>
+  const fast = RUN.fast, fsc = fast ? score(fast) : null;
+  const cmp = fast ? `<section class="card"><div class="section-h"><h3>This route vs fastest</h3></div><div class="tbl-wrap"><table>
+      <thead><tr><th></th><th>This route</th><th>Fastest</th></tr></thead><tbody>
+      <tr><td>Distance</td><td>${fmtMi(an.total)} mi</td><td>${fmtMi(fast.total)} mi</td></tr>
       <tr><td>Drive time</td><td>${fmtDur(sum.travelTimeInSeconds)}</td><td>${fmtDur(fast.summary.travelTimeInSeconds)}</td></tr>
-      <tr><td>Traffic delay</td><td>${fmtDur(fun.delay)}</td><td>${fmtDur(fast.delay)}</td></tr>
-      <tr><td>In curves</td><td>${Math.round(fun.curveShare * 100)}%</td><td>${Math.round(fast.curveShare * 100)}%</td></tr>
-      <tr><td>Highway</td><td>${Math.round(fun.motorShare * 100)}%</td><td>${Math.round(fast.motorShare * 100)}%</td></tr>
+      <tr><td>Traffic delay</td><td>${fmtDur(an.delay)}</td><td>${fmtDur(fast.delay)}</td></tr>
+      <tr><td>In corners</td><td>${Math.round(an.curveShare * 100)}%</td><td>${Math.round(fast.curveShare * 100)}%</td></tr>
+      <tr><td>Highway</td><td>${Math.round(an.motorShare * 100)}%</td><td>${Math.round(fast.motorShare * 100)}%</td></tr>
       <tr><td>Fun score</td><td>${sc.value}</td><td>${fsc.value}</td></tr>
       </tbody></table></div></section>` : '';
 
@@ -856,38 +1212,40 @@ function render(fun, fast, wps, start, dest) {
   <section class="card">
     <div class="verdict">
       <div class="sign" aria-label="Fun score ${sc.value} out of 100"><div class="d"></div><div class="n">${sc.value}</div></div>
-      <div><span class="label">Fun score</span><h2>${scoreLabel(sc.value)}</h2>
-        <p>${Math.round(fun.curveShare * 100)}% of the drive in corners · ${hillsTxt}${fun.best[0] ? ' · best stretch on ' + esc(fun.best[0].name || 'an unnamed road') : ''}</p></div>
+      <div><span class="label">Fun score · your formula</span><h2>${scoreLabel(sc.value)}</h2>
+        <p>${esc(c.label)}${an.bestRoad ? ' · best road: ' + esc(an.bestRoad.label) : ''}</p></div>
     </div>
+    ${c.ok ? '' : `<div class="msg err">This route is over your ${RUN.mode === 'ab' ? 'extra-time limit' : 'loop length target'}. It's shown because you picked it.</div>`}
     <div class="stats">
-      <div class="stat"><span class="label">Distance</span><b>${fmtMi(fun.total)} mi</b><span class="sub">${(miles * 1.609344).toFixed(miles < 10 ? 1 : 0)} km</span></div>
+      <div class="stat"><span class="label">Distance</span><b>${fmtMi(an.total)} mi</b><span class="sub">${(miles * 1.609344).toFixed(miles < 10 ? 1 : 0)} km</span></div>
       <div class="stat"><span class="label">Drive time</span><b>${fmtDur(sum.travelTimeInSeconds)}</b><span class="sub">with traffic</span></div>
-      <div class="stat"><span class="label">Traffic</span><b><span class="pill ${tl.cls}">${tl.t}</span></b><span class="sub">${fun.delay >= 60 ? '+' + fmtDur(fun.delay) + ' delay' : 'no delay'}</span></div>
-      <div class="stat"><span class="label">${fast ? 'Vs fastest' : 'Target'}</span>${vsFast}</div>
+      <div class="stat"><span class="label">Traffic</span><b><span class="pill ${tl.cls}">${tl.t}</span></b><span class="sub">${an.delay >= 60 ? '+' + fmtDur(an.delay) + ' delay' : 'no delay'}</span></div>
+      <div class="stat"><span class="label">${RUN.mode === 'ab' ? 'Vs fastest' : 'Vs target'}</span>${vs}</div>
     </div>
     <div class="drive">
       <a class="primary" href="${esc(links.app)}">Drive it in Google Maps</a>
       <a class="secondary" href="${esc(links.web)}" target="_blank" rel="noopener">Open as a Google Maps link</a>
-      <p class="fine">Sends ${wps.length} stop${wps.length === 1 ? '' : 's'} (the numbered dots) so Google Maps stays on these roads. It uses its own live traffic on CarPlay. If Google Maps offers a faster road between stops, stay on the one shown here.</p>
-      ${S.mode === 'loop' ? '<button class="ghost" type="button" id="againBtn">Try a different loop</button>' : ''}
+      <p class="fine">Sends ${c.stops.length} stop${c.stops.length === 1 ? '' : 's'} (the numbered dots) so Google Maps stays on these roads. Change the count under “Google Maps stops”. If Google Maps offers a faster road between stops, stay on the one shown here.</p>
     </div>
   </section>
 
   <section class="card">
-    <div class="section-h"><h3>Why it scored ${sc.value}</h3><span class="label">${fmtMi(fun.total)} mi analyzed</span></div>
+    <div class="section-h"><h3>Shape this route</h3><span class="label">${roads.length} roads</span></div>
+    <p class="hint">Keep a road to force the route through it. Skip one to route around it. Tap a road name to see it on the map. ◆ marks the twistiest.</p>
+    ${roadsHtml}
+    <button class="go" type="button" data-act="rebuild" ${marksCount ? '' : 'disabled'}>${marksCount ? 'Rebuild with ' + marksCount + ' change' + (marksCount === 1 ? '' : 's') : 'Mark roads to rebuild'}</button>
+  </section>
+
+  <section class="card">
+    <div class="section-h"><h3>Why it scored ${sc.value}</h3><span class="label">${fmtMi(an.total)} mi analyzed</span></div>
     <div class="bars">
-      ${bar('Curves', sc.parts.curves, Math.round(fun.curveShare * 100) + '% in corners', fmtMi(fun.curveLen) + ' mi of corners, ' + fmtMi(fun.tightLen) + ' mi tight (under 60 m radius)')}
-      ${bar('Open road', sc.parts.open, Math.round(fun.motorShare * 100) + '% highway · ' + Math.round(fun.urbanShare * 100) + '% town', '')}
-      ${fun.elev ? bar('Hills', sc.parts.hills, fmtInt((fun.elev.up * FT) / miles) + ' ft/mi', fmtInt(fun.elev.up * FT) + ' ft up, ' + fmtInt(fun.elev.down * FT) + ' ft down, steepest about ' + Math.round(fun.elev.maxGrade * 100) + '%') : ''}
-      ${bar('Traffic', sc.parts.traffic, fun.delay >= 60 ? '+' + fmtDur(fun.delay) : 'no delay', typical ? 'Usually ' + fmtDur(typical) + ' at this hour · ' + fmtDur(freeflow || typical) + ' with empty roads' : '')}
-      ${bar('Flow', sc.parts.flow, fun.turnsPer10mi.toFixed(1) + ' turns per 10 mi', fun.turns + (fun.turns === 1 ? ' turn or junction' : ' turns and junctions') + ' in total')}
+      ${bar(f.curves, sc.parts.curves, Math.round(an.curveShare * 100) + '% in corners', fmtMi(an.curveLen) + ' mi of corners, ' + fmtMi(an.tightLen) + ' mi tight (under 60 m radius)')}
+      ${bar(f.open, sc.parts.open, Math.round(an.motorShare * 100) + '% highway · ' + Math.round(an.urbanShare * 100) + '% town', '')}
+      ${bar(f.hills, sc.parts.hills, an.elev ? fmtInt((an.elev.up * FT) / miles) + ' ft/mi' : 'no data', an.elev ? fmtInt(an.elev.up * FT) + ' ft up, ' + fmtInt(an.elev.down * FT) + ' ft down, steepest about ' + Math.round(an.elev.maxGrade * 100) + '%' : 'Elevation data didn’t load, so hills are left out of the score.')}
+      ${bar(f.traffic, sc.parts.traffic, an.delay >= 60 ? '+' + fmtDur(an.delay) : 'no delay', typical ? 'Usually ' + fmtDur(typical) + ' at this hour · ' + fmtDur(freeflow || typical) + ' with empty roads' : '')}
+      ${bar(f.flow, sc.parts.flow, an.turnsPer10mi.toFixed(1) + ' turns per 10 mi', an.turns + (an.turns === 1 ? ' turn or junction' : ' turns and junctions') + ' in total')}
     </div>
-    ${profileSvg(fun.elev)}
-  </section>
-
-  <section class="card">
-    <div class="section-h"><h3>Best stretches</h3><span class="label">Curvature</span></div>
-    ${best}
+    ${profileSvg(an.elev)}
   </section>
 
   <section class="card">
@@ -898,36 +1256,85 @@ function render(fun, fast, wps, start, dest) {
   ${cmp}
   </div>`;
   $('#results').hidden = false;
-  const again = $('#againBtn');
-  if (again) again.addEventListener('click', () => { S.loopSpin += S.heading === 'any' ? 83 : 1; S.loopDir *= -1; go(); });
-  $('#results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
 }
+
+$('#results').addEventListener('click', async (e) => {
+  const c = RUN.cands.find((x) => x.id === RUN.selected); if (!c) return;
+  const markBtn = e.target.closest('[data-mark]');
+  if (markBtn) {
+    const key = markBtn.closest('.road').dataset.key, v = markBtn.dataset.mark;
+    if (v === 'none') delete c.marks[key]; else c.marks[key] = v;
+    renderDetail(c); return;
+  }
+  const focus = e.target.closest('[data-act="focus"]');
+  if (focus) { const r = c.an.roads.find((x) => x.key === focus.closest('.road').dataset.key); if (r) highlightRoad(c, r); return; }
+  if (e.target.closest('[data-act="rebuild"]') && !busy) {
+    showErr(''); setBusy(true);
+    try { const n = await rebuild(c); RUN.userPicked = true; select(n.id, true); }
+    catch (err) { showErr(err.message || String(err)); $('#err').scrollIntoView({ block: 'center' }); }
+    finally { setBusy(false); }
+  }
+});
 
 /* ---------------- settings ---------------- */
 const dlg = $('#settings');
-function openSettings() { $('#keyInput').value = KEY; if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
+const cleanKey = (v) => String(v || '').replace(/[\s"'`<>]/g, '');
+function openSettings() { $('#keyInput').value = KEY; $('#keyTest').hidden = true; if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', ''); }
 $('#settingsBtn').addEventListener('click', openSettings);
 $('#clearKey').addEventListener('click', () => { $('#keyInput').value = ''; });
-dlg.addEventListener('close', () => {
-  if (dlg.returnValue !== 'save') return;
-  KEY = $('#keyInput').value.trim();
+$('#testKey').addEventListener('click', async () => {
+  const out = $('#keyTest'), k = cleanKey($('#keyInput').value);
+  out.hidden = false;
+  if (!k) { out.textContent = 'Paste a key first.'; return; }
+  out.textContent = 'Testing ' + k.length + '-character key…';
+  const check = async (path) => {
+    try {
+      const r = await fetch('https://api.tomtom.com' + path + (path.includes('?') ? '&' : '?') + 'key=' + encodeURIComponent(k));
+      if (r.ok) return 'OK';
+      let m = ''; try { const j = await r.json(); m = j.detailedError?.message || j.error?.description || j.errorText || ''; } catch (e) {}
+      return 'failed (' + r.status + (m ? ': ' + m : '') + ')';
+    } catch (e) { return 'could not connect'; }
+  };
+  const [s, rt] = await Promise.all([
+    check('/search/2/search/Nashville.json?limit=1'),
+    check('/routing/1/calculateRoute/36.16,-86.78:36.10,-86.80/json?routeType=thrilling'),
+  ]);
+  out.textContent = k.length + '-character key · Search: ' + s + ' · Routing: ' + rt + (s === 'OK' && rt === 'OK' ? '. Tap Save.' : '. Keys are 32 characters; check for a typo.');
+});
+dlg.addEventListener('close', () => { if (dlg.returnValue === 'save') saveKey(cleanKey($('#keyInput').value)); });
+function saveKey(k) {
+  KEY = k;
   if (KEY) store.set(KEY_NAME, KEY); else store.del(KEY_NAME);
   $('#keyNotice').hidden = !!KEY;
+  if (!map) return;
   if (trafficLayer) { map.removeLayer(trafficLayer); trafficLayer = null; $('#trafficLayerBtn').setAttribute('aria-pressed', 'false'); }
   setBase();
-});
+}
+(function importKeyFromLink() {
+  const m = location.hash.match(/^#k=([A-Za-z0-9_-]{16,64})$/);
+  if (!m) return;
+  KEY = m[1]; store.set(KEY_NAME, KEY);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+})();
 
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { setBase(); if (lastDraw) draw(...lastDraw); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { setBase(); refreshSelected(false); });
 
+/* ---------------- restore preferences ---------------- */
 try {
-  const last = JSON.parse(store.get('switchback.last') || 'null');
-  if (last) {
-    if (last.curves) S.curves = last.curves; if (last.hills) S.hills = last.hills;
-    if (last.avoid) Object.assign(S.avoid, last.avoid);
-    document.querySelectorAll('.seg').forEach(syncSeg);
-    document.querySelectorAll('[data-avoid]').forEach((b) => b.setAttribute('aria-pressed', String(!!S.avoid[b.dataset.avoid])));
+  const p = JSON.parse(store.get(PREFS) || 'null');
+  if (p) {
+    for (const k of ['curves', 'hills', 'hw', 'toll']) if (p[k]) S[k] = p[k];
+    if (p.avoid) Object.assign(S.avoid, p.avoid);
+    if (p.weights) Object.assign(S.weights, p.weights);
+    if (Number.isFinite(p.maxExtra)) S.maxExtra = p.maxExtra;
+    if (Number.isFinite(p.stops)) S.stops = p.stops;
   }
 } catch (e) {}
+document.querySelectorAll('.seg[data-key]').forEach(syncSeg);
+document.querySelectorAll('[data-avoid]').forEach((b) => b.setAttribute('aria-pressed', String(!!S.avoid[b.dataset.avoid])));
+$('#maxExtra').value = S.maxExtra; $('#maxExtraVal').textContent = extraText(S.maxExtra);
+$('#stops').value = S.stops; $('#stopsVal').textContent = S.stops;
+buildWeights();
 $('#keyNotice').hidden = !!KEY;
 initMap();
 })();
