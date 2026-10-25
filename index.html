@@ -327,9 +327,9 @@ dialog p { margin: 0; color: var(--muted); font-size: .92rem; }
         </div>
       </div>
       <div class="field">
-        <div class="section-h"><label class="label" for="stops">Google Maps stops</label><span class="range-val" id="stopsVal">6</span></div>
-        <input type="range" id="stops" min="2" max="9" step="1" value="6">
-        <p class="hint">Fewer stops, fewer interruptions. More stops, closer to this route.</p>
+        <div class="section-h"><label class="label" for="stops">Google Maps stops</label><span class="range-val" id="stopsVal">9</span></div>
+        <input type="range" id="stops" min="2" max="9" step="1" value="9">
+        <p class="hint">Spread evenly around the whole route. More stops keep Google Maps closer to these roads.</p>
       </div>
     </div>
 
@@ -450,7 +450,7 @@ const PRESETS = {
 const S = {
   mode: 'ab', curves: 'auto', hills: 'auto', hw: 'allow', toll: 'allow', heading: 'auto', leave: 'now',
   avoid: { unpavedRoads: true, ferries: false },
-  weights: { ...PRESETS.balanced }, maxExtra: 30, stops: 6, loopMin: 60,
+  weights: { ...PRESETS.balanced }, maxExtra: 30, stops: 9, loopMin: 60,
   start: null, end: null,
 };
 const MI = 1609.344, FT = 3.28084;
@@ -736,7 +736,7 @@ function analyze(route) {
   const legTimes = (route.legs || []).map((l) => (l.summary && l.summary.travelTimeInSeconds) || 0);
 
   return {
-    route, pts, total, scale, smp, runs, instr, roads, bestRoad, legTimes,
+    route, pts, total, scale, smp, step: STEP, cls, runs, instr, roads, bestRoad, legTimes,
     curvature, cpm: curvature / (total / MI), curveLen, sweepLen, tightLen, funLen,
     curveShare: curveLen / total, motorShare: motor / total, urbanShare: urban / total, traffic,
     turns, turnsPer10mi: turns / (total / MI) * 10,
@@ -777,23 +777,32 @@ const CAT = { JAM: 'Slow traffic', ROAD_WORK: 'Road work', ROAD_CLOSURE: 'Closur
 
 /* ---------------- Google Maps handoff ---------------- */
 function pointAt(an, s) {
-  const i = clamp(Math.round(s / 20), 0, an.smp.length - 1);
+  const i = clamp(Math.round(s / (an.step || 10)), 0, an.smp.length - 1);
   return { lat: an.smp[i].lat, lng: an.smp[i].lng, s: an.smp[i].s };
 }
 function waypointOffsets(an) { return an.instr.filter((x) => /^WAYPOINT/.test(x.maneuver || '')).map((x) => x.off); }
+/* Google Maps stops: spread evenly along the whole route, nudged off interstates (a stop on a divided
+   highway can snap to the wrong side and cause a U-turn) and at least 150 m from any turn. */
 function pickStops(an, max) {
-  let forced = waypointOffsets(an).map((s) => pointAt(an, s));
-  if (forced.length > max) { // keep an evenly spread subset
-    const keep = []; for (let i = 0; i < max; i++) keep.push(forced[Math.round((i + 0.5) * forced.length / max - 0.5)]);
-    forced = keep;
+  const n = clamp(Math.round(max), 1, 9);
+  const step = an.step || 10;
+  const onFreeway = (s) => an.cls && an.cls[clamp(Math.floor(s / step), 0, an.cls.length - 1)] === 2;
+  const nearTurn = (s) => an.instr.some((x) => !/^(DEPART|ARRIVE|WAYPOINT)/.test(x.maneuver || '') && Math.abs(x.off - s) < 150);
+  const snap = (s) => {
+    for (const d of [0, 150, -150, 300, -300, 600, -600, 1000, -1000, 1600, -1600, 2500, -2500, 4000, -4000]) {
+      const t = s + d;
+      if (t < 400 || t > an.total - 400) continue;
+      if (!onFreeway(t) && !nearTurn(t)) return t;
+    }
+    return s;
+  };
+  const picks = [];
+  for (let k = 1; k <= n; k++) {
+    const s = snap((an.total * k) / (n + 1));
+    if (picks.length && s - picks[picks.length - 1].s < 500) continue;
+    picks.push(pointAt(an, s));
   }
-  const picks = forced.slice();
-  const far = (s) => picks.every((p) => Math.abs(p.s - s) > 1200) && s > 800 && s < an.total - 800;
-  const curvy = an.roads.filter((r) => r.c >= 300).sort((a, b) => b.c - a.c);
-  for (const r of curvy) { if (picks.length >= max) break; const s = (r.a + r.b) / 2; if (far(s)) picks.push(pointAt(an, s)); }
-  const longest = an.roads.slice().sort((a, b) => b.len - a.len);
-  for (const r of longest) { if (picks.length >= max) break; const s = (r.a + r.b) / 2; if (r.len > 400 && far(s)) picks.push(pointAt(an, s)); }
-  return picks.sort((a, b) => a.s - b.s).slice(0, max);
+  return picks;
 }
 function gmapsLinks(origin, dest, wps) {
   const ll = (p) => p.lat.toFixed(6) + ',' + p.lng.toFixed(6);
@@ -1347,7 +1356,7 @@ function renderDetail(c) {
     <div class="drive">
       <a class="primary" href="${esc(links.app)}">Drive it in Google Maps</a>
       <a class="secondary" href="${esc(links.web)}" target="_blank" rel="noopener">Open as a Google Maps link</a>
-      <p class="fine">Sends ${c.stops.length} stop${c.stops.length === 1 ? '' : 's'} (the numbered dots) so Google Maps stays on these roads. Change the count under “Google Maps stops”. If Google Maps offers a faster road between stops, stay on the one shown here.</p>
+      <p class="fine">Sends ${c.stops.length} stop${c.stops.length === 1 ? '' : 's'} (the numbered dots), spread evenly from start to finish, so Google Maps stays on these roads the whole way. Use the top button: opened in Safari instead of the app, Google Maps keeps only the first 3 stops. If Google Maps offers a faster road between stops, stay on the one shown here.</p>
     </div>
   </section>
 
